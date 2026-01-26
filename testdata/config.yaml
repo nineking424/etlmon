@@ -1,0 +1,18 @@
+# Test configuration with shorter intervals for faster testing
+interval: 100ms
+
+resources:
+  - cpu
+  - memory
+
+windows:
+  - 500ms
+  - 1s
+
+aggregations:
+  - avg
+  - max
+  - min
+
+database:
+  path: ./testdata/test.db
