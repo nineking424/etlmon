@@ -1,0 +1,21 @@
+# etlmon configuration
+interval: 10s
+
+resources:
+  - cpu
+  - memory
+  - disk
+
+windows:
+  - 1m
+  - 5m
+  - 1h
+
+aggregations:
+  - avg
+  - max
+  - min
+  - last
+
+database:
+  path: ./etlmon.db
