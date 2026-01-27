@@ -2,18 +2,18 @@ Window: 1m
 
 TIME         RESOURCE        METRIC     TYPE     VALUE
 ──────────────────────────────────────────────────────────────────────
-09:42:14     cpu             usage_per… avg      45.5%
-09:42:14     cpu             usage_per… max      58.2%
-09:42:14     cpu             usage_per… min      32.1%
-09:42:14     cpu             usage_per… last     47.3%
-09:42:14     memory          usage_per… avg      62.3%
-09:42:14     memory          usage_per… max      65.8%
-09:42:14     memory          used_bytes avg      10.0 GB
-09:42:14     disk            usage_per… avg      78.5%
-09:42:14     disk            usage_per… max      79.2%
-09:42:14     disk            free_bytes avg      100.5 GB
-09:41:14     cpu             usage_per… avg      42.1%
-09:41:14     memory          usage_per… avg      61.5%
-09:41:14     disk            usage_per… avg      78.3%
+11:27:30     cpu             usage_per… avg      45.5%
+11:27:30     cpu             usage_per… max      58.2%
+11:27:30     cpu             usage_per… min      32.1%
+11:27:30     cpu             usage_per… last     47.3%
+11:27:30     memory          usage_per… avg      62.3%
+11:27:30     memory          usage_per… max      65.8%
+11:27:30     memory          used_bytes avg      10.0 GB
+11:27:30     disk            usage_per… avg      78.5%
+11:27:30     disk            usage_per… max      79.2%
+11:27:30     disk            free_bytes avg      100.5 GB
+11:26:30     cpu             usage_per… avg      42.1%
+11:26:30     memory          usage_per… avg      61.5%
+11:26:30     disk            usage_per… avg      78.3%
 
 Showing 13 of 13 results
