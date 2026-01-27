@@ -1,0 +1,14 @@
+=== Initializing ===
+
+
+=== Running ===
+Running | Last: 09:42:14 | etlmon
+
+=== Collecting ===
+Collecting metrics | Last: 09:42:14 | etlmon
+
+=== Aggregating ===
+Aggregating data | Last: 09:42:14 | etlmon
+
+=== Persisting ===
+Persisting to database | Last: 09:42:14 | etlmon
