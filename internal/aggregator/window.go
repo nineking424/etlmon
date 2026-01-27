@@ -1,6 +1,8 @@
 package aggregator
 
 import (
+	"encoding/json"
+	"sort"
 	"sync"
 	"time"
 
@@ -38,21 +40,25 @@ func (b *MetricBuffer) Len() int {
 	return len(b.metrics)
 }
 
-// GetValues returns all values for a specific resource type and metric name
-func (b *MetricBuffer) GetValues(resourceType, metricName string) []float64 {
+// GetValues returns all values for a specific resource/metric/labels key
+func (b *MetricBuffer) GetValues(key ResourceMetricKey) []float64 {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
 	var values []float64
 	for _, m := range b.metrics {
-		if m.ResourceType == resourceType && m.Name == metricName {
-			values = append(values, m.Value)
+		if m.ResourceType == key.ResourceType && m.Name == key.MetricName {
+			// Match labels (empty string matches empty/nil labels)
+			metricLabels := LabelsToString(m.Labels)
+			if metricLabels == key.Labels {
+				values = append(values, m.Value)
+			}
 		}
 	}
 	return values
 }
 
-// GetResourceMetricKeys returns all unique (resourceType, metricName) pairs
+// GetResourceMetricKeys returns all unique (resourceType, metricName, labels) tuples
 func (b *MetricBuffer) GetResourceMetricKeys() []ResourceMetricKey {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -61,7 +67,11 @@ func (b *MetricBuffer) GetResourceMetricKeys() []ResourceMetricKey {
 	var keys []ResourceMetricKey
 
 	for _, m := range b.metrics {
-		key := ResourceMetricKey{ResourceType: m.ResourceType, MetricName: m.Name}
+		key := ResourceMetricKey{
+			ResourceType: m.ResourceType,
+			MetricName:   m.Name,
+			Labels:       LabelsToString(m.Labels),
+		}
 		if !seen[key] {
 			seen[key] = true
 			keys = append(keys, key)
@@ -70,10 +80,33 @@ func (b *MetricBuffer) GetResourceMetricKeys() []ResourceMetricKey {
 	return keys
 }
 
-// ResourceMetricKey identifies a unique resource/metric combination
+// ResourceMetricKey identifies a unique resource/metric/labels combination
 type ResourceMetricKey struct {
 	ResourceType string
 	MetricName   string
+	Labels       string // JSON-encoded map, sorted keys for determinism
+}
+
+// LabelsToString converts labels map to deterministic JSON string
+func LabelsToString(labels map[string]string) string {
+	if len(labels) == 0 {
+		return ""
+	}
+	// Sort keys for deterministic output
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// Create ordered map for JSON
+	orderedMap := make(map[string]string)
+	for _, k := range keys {
+		orderedMap[k] = labels[k]
+	}
+
+	b, _ := json.Marshal(orderedMap)
+	return string(b)
 }
 
 // Clear removes all metrics from the buffer

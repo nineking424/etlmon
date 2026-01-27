@@ -6,6 +6,15 @@ resources:
   - memory
   - disk
 
+# Disk configuration (optional - omit for auto-discover behavior)
+# disk:
+#   default_method: stats  # stats (default), df, or du
+#   paths:
+#     - path: /
+#       method: stats
+#     - path: /home
+#       method: df
+
 windows:
   - 1m
   - 5m

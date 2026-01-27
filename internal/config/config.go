@@ -16,11 +16,33 @@ type Config struct {
 	Windows      []string       `yaml:"windows"`
 	Aggregations []string       `yaml:"aggregations"`
 	Database     DatabaseConfig `yaml:"database"`
+	Disk         DiskConfig     `yaml:"disk,omitempty"`
 }
 
 // DatabaseConfig holds database configuration
 type DatabaseConfig struct {
 	Path string `yaml:"path"`
+}
+
+// DiskMethod represents the collection method for disk metrics
+type DiskMethod string
+
+const (
+	DiskMethodStats DiskMethod = "stats" // gopsutil/syscall.Statfs (default)
+	DiskMethodDF    DiskMethod = "df"    // parse df command output
+	DiskMethodDU    DiskMethod = "du"    // run du command (recursive)
+)
+
+// DiskPathConfig configures collection for a specific path
+type DiskPathConfig struct {
+	Path   string     `yaml:"path"`             // filesystem path or mountpoint
+	Method DiskMethod `yaml:"method,omitempty"` // collection method (uses default if empty)
+}
+
+// DiskConfig holds disk-specific configuration
+type DiskConfig struct {
+	DefaultMethod DiskMethod       `yaml:"default_method,omitempty"` // default: stats
+	Paths         []DiskPathConfig `yaml:"paths,omitempty"`          // if empty, auto-discover
 }
 
 // Valid resources, windows, and aggregations
@@ -30,12 +52,18 @@ var (
 		"memory": true,
 		"disk":   true,
 	}
-	
+
 	ValidAggregations = map[string]bool{
 		"avg":  true,
 		"max":  true,
 		"min":  true,
 		"last": true,
+	}
+
+	ValidDiskMethods = map[DiskMethod]bool{
+		DiskMethodStats: true,
+		DiskMethodDF:    true,
+		DiskMethodDU:    true,
 	}
 )
 
@@ -103,7 +131,12 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("invalid aggregation: %s (valid: avg, max, min, last)", a)
 		}
 	}
-	
+
+	// Validate disk configuration
+	if err := c.Disk.Validate(); err != nil {
+		return fmt.Errorf("invalid disk config: %w", err)
+	}
+
 	return nil
 }
 
@@ -136,4 +169,35 @@ func (c *Config) GetWindowDurations() ([]time.Duration, error) {
 		durations[i] = d
 	}
 	return durations, nil
+}
+
+// Validate validates the disk configuration
+func (d *DiskConfig) Validate() error {
+	// Validate default method if specified
+	if d.DefaultMethod != "" && !ValidDiskMethods[d.DefaultMethod] {
+		return fmt.Errorf("invalid default_method: %s (valid: stats, df, du)", d.DefaultMethod)
+	}
+
+	// Validate each path configuration
+	for i, p := range d.Paths {
+		if p.Path == "" {
+			return fmt.Errorf("path %d: path cannot be empty", i)
+		}
+		if p.Method != "" && !ValidDiskMethods[p.Method] {
+			return fmt.Errorf("path %d (%s): invalid method %s (valid: stats, df, du)", i, p.Path, p.Method)
+		}
+	}
+
+	return nil
+}
+
+// GetMethod returns the effective method for a path, using default if not specified
+func (d *DiskConfig) GetMethod(pathConfig DiskPathConfig) DiskMethod {
+	if pathConfig.Method != "" {
+		return pathConfig.Method
+	}
+	if d.DefaultMethod != "" {
+		return d.DefaultMethod
+	}
+	return DiskMethodStats // Default to stats
 }

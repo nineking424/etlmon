@@ -9,6 +9,7 @@ type AggregatedMetric struct {
 	AggregatedValue float64 `json:"aggregated_value"` // The aggregated value
 	WindowSize      string  `json:"window_size"`      // 1m, 5m, 1h
 	AggregationType string  `json:"aggregation_type"` // avg, max, min, last
+	Labels          string  `json:"labels,omitempty"` // JSON-encoded labels map
 }
 
 // GetMetricsOptions defines filtering options for querying metrics
@@ -20,6 +21,7 @@ type GetMetricsOptions struct {
 	StartTime       int64  // Filter by start time (Unix)
 	EndTime         int64  // Filter by end time (Unix)
 	Limit           int    // Maximum number of results
+	Labels          string // Filter by labels (exact match)
 }
 
 // Schema SQL

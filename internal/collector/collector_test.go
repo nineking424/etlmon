@@ -5,6 +5,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/etlmon/etlmon/internal/config"
 )
 
 // Test Collector Interface
@@ -237,5 +239,78 @@ func TestIsPseudoFS(t *testing.T) {
 		if isPseudoFS(fs) {
 			t.Errorf("isPseudoFS(%s) = true, want false", fs)
 		}
+	}
+}
+
+func TestNewDiskCollectorWithConfig_EmptyConfig(t *testing.T) {
+	cfg := config.DiskConfig{}
+	c := NewDiskCollectorWithConfig(cfg)
+
+	if c == nil {
+		t.Fatal("NewDiskCollectorWithConfig() returned nil")
+	}
+
+	// Empty config should behave like auto-discover
+	ctx := context.Background()
+	metrics, err := c.Collect(ctx)
+	if err != nil {
+		t.Fatalf("Collect() failed: %v", err)
+	}
+
+	// Should have at least one disk
+	if len(metrics) == 0 {
+		t.Error("Expected at least one metric from auto-discover")
+	}
+}
+
+func TestNewDiskCollectorWithConfig_ConfiguredPaths(t *testing.T) {
+	cfg := config.DiskConfig{
+		DefaultMethod: config.DiskMethodStats,
+		Paths: []config.DiskPathConfig{
+			{Path: "/", Method: config.DiskMethodStats},
+		},
+	}
+	c := NewDiskCollectorWithConfig(cfg)
+
+	if c == nil {
+		t.Fatal("NewDiskCollectorWithConfig() returned nil")
+	}
+
+	ctx := context.Background()
+	metrics, err := c.Collect(ctx)
+	if err != nil {
+		t.Fatalf("Collect() failed: %v", err)
+	}
+
+	// Should have metrics for configured path
+	if len(metrics) == 0 {
+		t.Error("Expected metrics for configured path")
+	}
+
+	// Check that method label is present
+	for _, m := range metrics {
+		if m.Labels["method"] != "stats" {
+			t.Errorf("Expected method=stats label, got %s", m.Labels["method"])
+		}
+	}
+}
+
+func TestDiskCollector_BackwardCompatibility(t *testing.T) {
+	// Using NewDiskCollector() should work exactly like before
+	c := NewDiskCollector()
+
+	if c.Type() != "disk" {
+		t.Errorf("Type() = %s, want disk", c.Type())
+	}
+
+	ctx := context.Background()
+	metrics, err := c.Collect(ctx)
+	if err != nil {
+		t.Fatalf("Collect() failed: %v", err)
+	}
+
+	// Should auto-discover at least one disk
+	if len(metrics) == 0 {
+		t.Error("Expected at least one metric from backward-compatible NewDiskCollector()")
 	}
 }

@@ -143,7 +143,12 @@ func TestMetricBuffer_GetValues(t *testing.T) {
 	buf.Add(collector.Metric{ResourceType: "cpu", Name: "usage_percent", Value: 20.0, Timestamp: now})
 	buf.Add(collector.Metric{ResourceType: "cpu", Name: "usage_percent", Value: 30.0, Timestamp: now})
 
-	values := buf.GetValues("cpu", "usage_percent")
+	key := ResourceMetricKey{
+		ResourceType: "cpu",
+		MetricName:   "usage_percent",
+		Labels:       "",
+	}
+	values := buf.GetValues(key)
 	if len(values) != 3 {
 		t.Fatalf("len(values) = %d, want 3", len(values))
 	}
@@ -486,5 +491,66 @@ func TestMetricBuffer_Duration(t *testing.T) {
 
 	if buf.Duration() != 5*time.Minute {
 		t.Errorf("Duration() = %v, want 5m", buf.Duration())
+	}
+}
+
+func TestAggregator_LabelAwareAggregation(t *testing.T) {
+	windows := []time.Duration{100 * time.Millisecond}
+	agg := NewAggregator(windows, []string{"avg"})
+
+	// Add metrics with different labels (simulating different disk partitions)
+	now := time.Now()
+
+	// Metrics for partition /
+	agg.Add(collector.Metric{
+		ResourceType: "disk",
+		Name:         "usage_percent",
+		Value:        50.0,
+		Timestamp:    now,
+		Labels:       map[string]string{"mountpoint": "/"},
+	})
+	agg.Add(collector.Metric{
+		ResourceType: "disk",
+		Name:         "usage_percent",
+		Value:        60.0,
+		Timestamp:    now,
+		Labels:       map[string]string{"mountpoint": "/"},
+	})
+
+	// Metrics for partition /home
+	agg.Add(collector.Metric{
+		ResourceType: "disk",
+		Name:         "usage_percent",
+		Value:        70.0,
+		Timestamp:    now,
+		Labels:       map[string]string{"mountpoint": "/home"},
+	})
+	agg.Add(collector.Metric{
+		ResourceType: "disk",
+		Name:         "usage_percent",
+		Value:        80.0,
+		Timestamp:    now,
+		Labels:       map[string]string{"mountpoint": "/home"},
+	})
+
+	// Wait for window to complete
+	time.Sleep(150 * time.Millisecond)
+
+	results := agg.CheckWindows(time.Now())
+
+	// Should have 2 separate aggregations (one for /, one for /home)
+	if len(results) != 2 {
+		t.Fatalf("Expected 2 results (one per label), got %d", len(results))
+	}
+
+	// Check that labels are preserved
+	labelsSeen := make(map[string]float64)
+	for _, r := range results {
+		labelsSeen[r.Labels] = r.Value
+	}
+
+	// Verify both label sets exist
+	if len(labelsSeen) != 2 {
+		t.Errorf("Expected 2 unique label sets, got %d", len(labelsSeen))
 	}
 }

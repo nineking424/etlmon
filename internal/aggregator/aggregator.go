@@ -15,6 +15,7 @@ type AggregationResult struct {
 	WindowSize      time.Duration
 	AggregationType string
 	Timestamp       time.Time // Window end time
+	Labels          string    // JSON-encoded labels map (empty for cpu/memory)
 }
 
 // Aggregator manages time-window aggregation of metrics
@@ -60,7 +61,7 @@ func (a *Aggregator) CheckWindows(now time.Time) []AggregationResult {
 			keys := buf.GetResourceMetricKeys()
 
 			for _, key := range keys {
-				values := buf.GetValues(key.ResourceType, key.MetricName)
+				values := buf.GetValues(key)
 				if len(values) == 0 {
 					continue
 				}
@@ -79,6 +80,7 @@ func (a *Aggregator) CheckWindows(now time.Time) []AggregationResult {
 						WindowSize:      duration,
 						AggregationType: aggType,
 						Timestamp:       buf.WindowEnd(),
+						Labels:          key.Labels,
 					})
 				}
 			}

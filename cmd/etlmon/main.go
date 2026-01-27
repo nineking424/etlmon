@@ -86,7 +86,7 @@ func main() {
 		case "memory":
 			collectorMgr.Register(collector.NewMemoryCollector())
 		case "disk":
-			collectorMgr.Register(collector.NewDiskCollector())
+			collectorMgr.Register(collector.NewDiskCollectorWithConfig(cfg.Disk))
 		}
 	}
 
@@ -150,6 +150,7 @@ func main() {
 							AggregatedValue: r.Value,
 							WindowSize:      tui.FormatDuration(r.WindowSize),
 							AggregationType: r.AggregationType,
+							Labels:          r.Labels,
 						}
 					}
 

@@ -58,6 +58,24 @@ func (s *SQLiteStore) Initialize() error {
 		return fmt.Errorf("creating schema: %w", err)
 	}
 
+	// Migration: Add labels column if it doesn't exist
+	var count int
+	row := s.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('aggregated_metrics') WHERE name='labels'`)
+	if err := row.Scan(&count); err != nil {
+		return fmt.Errorf("checking for labels column: %w", err)
+	}
+
+	if count == 0 {
+		_, err = s.db.Exec(`ALTER TABLE aggregated_metrics ADD COLUMN labels TEXT DEFAULT ''`)
+		if err != nil {
+			return fmt.Errorf("migrating schema (adding labels): %w", err)
+		}
+		_, err = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_metrics_labels ON aggregated_metrics(labels)`)
+		if err != nil {
+			return fmt.Errorf("creating labels index: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -67,9 +85,9 @@ func (s *SQLiteStore) SaveAggregatedMetric(metric *AggregatedMetric) error {
 	defer s.mu.Unlock()
 
 	_, err := s.db.Exec(`
-        INSERT INTO aggregated_metrics (timestamp, resource_type, metric_name, aggregated_value, window_size, aggregation_type)
-        VALUES (?, ?, ?, ?, ?, ?)
-    `, metric.Timestamp, metric.ResourceType, metric.MetricName, metric.AggregatedValue, metric.WindowSize, metric.AggregationType)
+        INSERT INTO aggregated_metrics (timestamp, resource_type, metric_name, aggregated_value, window_size, aggregation_type, labels)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, metric.Timestamp, metric.ResourceType, metric.MetricName, metric.AggregatedValue, metric.WindowSize, metric.AggregationType, metric.Labels)
 
 	if err != nil {
 		return fmt.Errorf("inserting metric: %w", err)
@@ -90,8 +108,8 @@ func (s *SQLiteStore) SaveBatch(metrics []*AggregatedMetric) error {
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`
-        INSERT INTO aggregated_metrics (timestamp, resource_type, metric_name, aggregated_value, window_size, aggregation_type)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO aggregated_metrics (timestamp, resource_type, metric_name, aggregated_value, window_size, aggregation_type, labels)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     `)
 	if err != nil {
 		return fmt.Errorf("preparing statement: %w", err)
@@ -99,7 +117,7 @@ func (s *SQLiteStore) SaveBatch(metrics []*AggregatedMetric) error {
 	defer stmt.Close()
 
 	for _, metric := range metrics {
-		_, err := stmt.Exec(metric.Timestamp, metric.ResourceType, metric.MetricName, metric.AggregatedValue, metric.WindowSize, metric.AggregationType)
+		_, err := stmt.Exec(metric.Timestamp, metric.ResourceType, metric.MetricName, metric.AggregatedValue, metric.WindowSize, metric.AggregationType, metric.Labels)
 		if err != nil {
 			return fmt.Errorf("inserting metric: %w", err)
 		}
@@ -144,8 +162,12 @@ func (s *SQLiteStore) GetMetrics(opts GetMetricsOptions) ([]*AggregatedMetric, e
 		conditions = append(conditions, "timestamp <= ?")
 		args = append(args, opts.EndTime)
 	}
+	if opts.Labels != "" {
+		conditions = append(conditions, "labels = ?")
+		args = append(args, opts.Labels)
+	}
 
-	query := "SELECT id, timestamp, resource_type, metric_name, aggregated_value, window_size, aggregation_type FROM aggregated_metrics"
+	query := "SELECT id, timestamp, resource_type, metric_name, aggregated_value, window_size, aggregation_type, COALESCE(labels, '') FROM aggregated_metrics"
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
@@ -164,7 +186,7 @@ func (s *SQLiteStore) GetMetrics(opts GetMetricsOptions) ([]*AggregatedMetric, e
 	var metrics []*AggregatedMetric
 	for rows.Next() {
 		m := &AggregatedMetric{}
-		err := rows.Scan(&m.ID, &m.Timestamp, &m.ResourceType, &m.MetricName, &m.AggregatedValue, &m.WindowSize, &m.AggregationType)
+		err := rows.Scan(&m.ID, &m.Timestamp, &m.ResourceType, &m.MetricName, &m.AggregatedValue, &m.WindowSize, &m.AggregationType, &m.Labels)
 		if err != nil {
 			return nil, fmt.Errorf("scanning row: %w", err)
 		}
