@@ -113,7 +113,7 @@ Download from [Releases](https://github.com/nineking424/etlmon/releases).
 
 ## Configuration
 
-Create a YAML configuration file (see `configs/config.yaml` for example):
+Create a YAML configuration file (see `configs/config.yaml` for basic example or `configs/config-advanced.yaml` for advanced disk configuration):
 
 ```yaml
 # Collection interval (how often to collect metrics)
@@ -124,6 +124,16 @@ resources:
   - cpu      # CPU usage percentage
   - memory   # Memory usage, available, total
   - disk     # Disk usage per mount point
+
+# Disk-specific configuration (optional)
+# If omitted, all partitions are auto-discovered with stats method
+disk:
+  default_method: stats  # stats (default), df, or du
+  paths:
+    - path: /
+      method: stats      # Optional: override default method for this path
+    - path: /home
+      method: df
 
 # Aggregation time windows
 windows:
@@ -149,9 +159,36 @@ database:
 |--------|------|-------------|---------|
 | `interval` | duration | Metric collection interval | `10s` |
 | `resources` | list | Resources to monitor: `cpu`, `memory`, `disk` | all |
+| `disk.default_method` | string | Disk collection method: `stats`, `df`, `du` | `stats` |
+| `disk.paths` | list | Specific filesystem paths to monitor (optional) | auto-discover all |
+| `disk.paths[].path` | string | Filesystem path (mount point or directory) | - |
+| `disk.paths[].method` | string | Collection method override for this path | default_method |
 | `windows` | list | Aggregation windows (Go duration format) | `1m, 5m, 1h` |
 | `aggregations` | list | Functions: `avg`, `max`, `min`, `last` | all |
 | `database.path` | string | SQLite database file path | `./etlmon.db` |
+
+### Disk Collection Methods
+
+etlmon supports three methods for collecting disk metrics:
+
+| Method | Description | Speed | Use Case |
+|--------|-------------|-------|----------|
+| **stats** | syscall.Statfs (filesystem-level) | Fast | Default; accurate for partitions |
+| **df** | Parses df command output | Medium | Cross-validation; useful for validation |
+| **du** | Recursive directory scan | Slow | Actual file usage in directories (e.g., `/var/log`) |
+
+Example: Mix methods for different paths:
+```yaml
+disk:
+  default_method: stats
+  paths:
+    - path: /              # Root: use fast filesystem stats
+      method: stats
+    - path: /var/log       # Logs: measure actual files recursively
+      method: du
+```
+
+See `configs/config-advanced.yaml` for detailed examples.
 
 ## Architecture
 
@@ -246,7 +283,8 @@ CREATE TABLE aggregated_metrics (
     metric_name TEXT NOT NULL,        -- usage_percent, used_bytes, etc.
     aggregated_value REAL NOT NULL,   -- The calculated value
     window_size TEXT NOT NULL,        -- 1m, 5m, 1h
-    aggregation_type TEXT NOT NULL    -- avg, max, min, last
+    aggregation_type TEXT NOT NULL,   -- avg, max, min, last
+    labels TEXT                       -- JSON-encoded labels (e.g., {"mountpoint": "/", "method": "stats"})
 );
 
 -- Indexes for efficient querying
@@ -254,7 +292,23 @@ CREATE INDEX idx_metrics_timestamp ON aggregated_metrics(timestamp);
 CREATE INDEX idx_metrics_resource ON aggregated_metrics(resource_type);
 CREATE INDEX idx_metrics_window ON aggregated_metrics(window_size);
 CREATE INDEX idx_metrics_composite ON aggregated_metrics(resource_type, window_size, timestamp);
+CREATE INDEX idx_metrics_labels ON aggregated_metrics(labels);
 ```
+
+### Labels
+
+Disk metrics include labels to identify collection method and filesystem details:
+
+```json
+{
+  "mountpoint": "/",
+  "device": "/dev/sda1",
+  "fstype": "ext4",
+  "method": "stats"
+}
+```
+
+Labels are stored as JSON strings and can be used to filter or group historical metrics by collection method or filesystem properties.
 
 ## Troubleshooting
 
@@ -299,9 +353,17 @@ chmod 755 /path/to/db/directory
 |--------|-------------|
 | `usage_percent` | Disk utilization per mount point (0-100) |
 | `used_bytes` | Bytes used on disk |
-| `total_bytes` | Total disk capacity |
+| `total_bytes` | Total disk capacity (available with stats/df methods) |
 
-Note: Pseudo-filesystems (tmpfs, proc, sysfs, etc.) are automatically filtered out.
+**Collection Methods:**
+- Disk metrics are collected using one of three methods (configurable per path):
+  - **stats**: Filesystem-level metrics via syscall.Statfs (default, fastest)
+  - **df**: Parses df command output (useful for validation)
+  - **du**: Recursive directory scan measuring actual files (slowest, most accurate for directories)
+
+**Labels:** Each disk metric includes labels identifying the collection method (`stats`, `df`, `du`) and filesystem details (mountpoint, device, fstype).
+
+**Note:** Pseudo-filesystems (tmpfs, proc, sysfs, etc.) are automatically filtered out during auto-discovery.
 
 ## License
 
