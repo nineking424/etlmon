@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -301,4 +302,182 @@ func TestFormatDuration(t *testing.T) {
 func TestStore_Interface(t *testing.T) {
 	// Verify storage.SQLiteStore implements our Store interface
 	var _ Store = (*storage.SQLiteStore)(nil)
+}
+
+// Test Table Format View Feature
+func TestRealtimeView_ToggleDisplayFormat(t *testing.T) {
+	view := NewRealtimeView()
+
+	// Default should be detailed
+	if view.GetDisplayFormat() != FormatDetailed {
+		t.Errorf("Default format = %v, want FormatDetailed", view.GetDisplayFormat())
+	}
+
+	// Toggle to table
+	view.ToggleDisplayFormat()
+	if view.GetDisplayFormat() != FormatTable {
+		t.Errorf("After toggle, format = %v, want FormatTable", view.GetDisplayFormat())
+	}
+
+	// Toggle back to detailed
+	view.ToggleDisplayFormat()
+	if view.GetDisplayFormat() != FormatDetailed {
+		t.Errorf("After second toggle, format = %v, want FormatDetailed", view.GetDisplayFormat())
+	}
+}
+
+func TestRealtimeView_SetDisplayFormat(t *testing.T) {
+	view := NewRealtimeView()
+
+	view.SetDisplayFormat(FormatTable)
+	if view.GetDisplayFormat() != FormatTable {
+		t.Errorf("After SetDisplayFormat, format = %v, want FormatTable", view.GetDisplayFormat())
+	}
+
+	view.SetDisplayFormat(FormatDetailed)
+	if view.GetDisplayFormat() != FormatDetailed {
+		t.Errorf("After SetDisplayFormat, format = %v, want FormatDetailed", view.GetDisplayFormat())
+	}
+}
+
+func TestRealtimeView_FormatMetricsTable_CPU(t *testing.T) {
+	view := NewRealtimeView()
+	view.SetDisplayFormat(FormatTable)
+
+	metrics := []collector.Metric{
+		{ResourceType: "cpu", Name: "usage_percent", Value: 45.5, Timestamp: time.Now()},
+	}
+
+	view.Update(metrics)
+	text := view.GetText()
+
+	// Should contain table header
+	if !strings.Contains(text, "RESOURCE") {
+		t.Error("Table should contain RESOURCE header")
+	}
+	if !strings.Contains(text, "USAGE") {
+		t.Error("Table should contain USAGE header")
+	}
+
+	// Should contain CPU row
+	if !strings.Contains(text, "cpu") {
+		t.Error("Table should contain cpu row")
+	}
+	if !strings.Contains(text, "45.5%") {
+		t.Error("Table should contain CPU usage value")
+	}
+}
+
+func TestRealtimeView_FormatMetricsTable_Memory(t *testing.T) {
+	view := NewRealtimeView()
+	view.SetDisplayFormat(FormatTable)
+
+	metrics := []collector.Metric{
+		{ResourceType: "memory", Name: "usage_percent", Value: 62.3, Timestamp: time.Now()},
+		{ResourceType: "memory", Name: "used_bytes", Value: 10 * 1024 * 1024 * 1024, Timestamp: time.Now()},
+		{ResourceType: "memory", Name: "available_bytes", Value: 6 * 1024 * 1024 * 1024, Timestamp: time.Now()},
+		{ResourceType: "memory", Name: "total_bytes", Value: 16 * 1024 * 1024 * 1024, Timestamp: time.Now()},
+	}
+
+	view.Update(metrics)
+	text := view.GetText()
+
+	// Should contain memory row with all values
+	if !strings.Contains(text, "memory") {
+		t.Error("Table should contain memory row")
+	}
+	if !strings.Contains(text, "62.3%") {
+		t.Error("Table should contain memory usage percentage")
+	}
+}
+
+func TestRealtimeView_FormatMetricsTable_Disk(t *testing.T) {
+	view := NewRealtimeView()
+	view.SetDisplayFormat(FormatTable)
+
+	metrics := []collector.Metric{
+		{ResourceType: "disk", Name: "usage_percent", Value: 78.5, Timestamp: time.Now(), Labels: map[string]string{"mountpoint": "/"}},
+		{ResourceType: "disk", Name: "used_bytes", Value: 365 * 1024 * 1024 * 1024, Timestamp: time.Now(), Labels: map[string]string{"mountpoint": "/"}},
+		{ResourceType: "disk", Name: "free_bytes", Value: 100 * 1024 * 1024 * 1024, Timestamp: time.Now(), Labels: map[string]string{"mountpoint": "/"}},
+		{ResourceType: "disk", Name: "total_bytes", Value: 465 * 1024 * 1024 * 1024, Timestamp: time.Now(), Labels: map[string]string{"mountpoint": "/"}},
+	}
+
+	view.Update(metrics)
+	text := view.GetText()
+
+	// Should contain disk row with mountpoint
+	if !strings.Contains(text, "disk (/)") {
+		t.Error("Table should contain 'disk (/)' showing mountpoint")
+	}
+	if !strings.Contains(text, "78.5%") {
+		t.Error("Table should contain disk usage percentage")
+	}
+}
+
+func TestRealtimeView_FormatMetricsTable_MissingValues(t *testing.T) {
+	view := NewRealtimeView()
+	view.SetDisplayFormat(FormatTable)
+
+	// CPU only has usage_percent, no bytes metrics
+	metrics := []collector.Metric{
+		{ResourceType: "cpu", Name: "usage_percent", Value: 45.5, Timestamp: time.Now()},
+	}
+
+	view.Update(metrics)
+	text := view.GetText()
+
+	// CPU row should have "-" for missing columns
+	if !strings.Contains(text, "-") {
+		t.Error("Table should contain '-' for missing values")
+	}
+}
+
+func TestRealtimeView_TableColorCoding(t *testing.T) {
+	view := NewRealtimeView()
+	view.SetDisplayFormat(FormatTable)
+
+	// Test different threshold levels - verifying the percentage is present
+	// Note: GetText() strips color codes, so we verify the percentage values are correct
+	tests := []struct {
+		value    float64
+		expected string
+	}{
+		{50.0, "50.0%"},  // < 70%
+		{75.0, "75.0%"},  // 70-90%
+		{95.0, "95.0%"},  // > 90%
+	}
+
+	for _, tt := range tests {
+		metrics := []collector.Metric{
+			{ResourceType: "cpu", Name: "usage_percent", Value: tt.value, Timestamp: time.Now()},
+		}
+
+		view.Update(metrics)
+		text := view.GetText()
+
+		if !strings.Contains(text, tt.expected) {
+			t.Errorf("Value %.1f%% should be displayed in table, got text:\n%s", tt.value, text)
+		}
+	}
+}
+
+func TestRealtimeView_TableMultipleDisks(t *testing.T) {
+	view := NewRealtimeView()
+	view.SetDisplayFormat(FormatTable)
+
+	metrics := []collector.Metric{
+		{ResourceType: "disk", Name: "usage_percent", Value: 50.0, Timestamp: time.Now(), Labels: map[string]string{"mountpoint": "/"}},
+		{ResourceType: "disk", Name: "usage_percent", Value: 75.0, Timestamp: time.Now(), Labels: map[string]string{"mountpoint": "/home"}},
+	}
+
+	view.Update(metrics)
+	text := view.GetText()
+
+	// Should have two separate disk rows
+	if !strings.Contains(text, "disk (/)") {
+		t.Error("Table should contain disk (/) row")
+	}
+	if !strings.Contains(text, "disk (/home)") {
+		t.Error("Table should contain disk (/home) row")
+	}
 }

@@ -106,6 +106,15 @@ func (a *App) setupKeybindings() {
 			a.historyView.SetWindowFilter("1h")
 			a.refreshHistory()
 			return nil
+		case 't', 'T':
+			a.mu.RLock()
+			currentView := a.currentView
+			a.mu.RUnlock()
+			if currentView == ViewRealtime {
+				a.realtimeView.ToggleDisplayFormat()
+				a.app.Draw()
+			}
+			return nil
 		}
 
 		return event
