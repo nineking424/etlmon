@@ -2,13 +2,13 @@
 
 
 === Running ===
-Running | Last: 11:27:30 | etlmon
+Running | Last: 09:48:20 | etlmon
 
 === Collecting ===
-Collecting metrics | Last: 11:27:30 | etlmon
+Collecting metrics | Last: 09:48:20 | etlmon
 
 === Aggregating ===
-Aggregating data | Last: 11:27:30 | etlmon
+Aggregating data | Last: 09:48:20 | etlmon
 
 === Persisting ===
-Persisting to database | Last: 11:27:30 | etlmon
+Persisting to database | Last: 09:48:20 | etlmon
