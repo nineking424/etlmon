@@ -1,0 +1,397 @@
+==========================================
+etlmon Verification Script
+==========================================
+
+Step 1: Building project...
+✓ Build successful
+
+Step 2: Running tests (verbose)...
+?   	github.com/etlmon/etlmon/cmd/etlmon	[no test files]
+=== RUN   TestE2E_FullPipeline
+    e2e_test.go:58: Config loaded: interval=200ms, resources=[cpu memory], windows=[500ms 1s]
+    e2e_test.go:70: Storage initialized
+    e2e_test.go:78: Aggregator created with 2 windows and 4 aggregation types
+    e2e_test.go:92: Registered 2 collectors
+    e2e_test.go:122: Received 5 metrics from collectors
+    e2e_test.go:122: Received 5 metrics from collectors
+    e2e_test.go:131: Window completed with 20 aggregation results
+    e2e_test.go:122: Received 5 metrics from collectors
+    e2e_test.go:122: Received 5 metrics from collectors
+    e2e_test.go:122: Received 5 metrics from collectors
+    e2e_test.go:131: Window completed with 40 aggregation results
+    e2e_test.go:122: Received 5 metrics from collectors
+    e2e_test.go:122: Received 5 metrics from collectors
+    e2e_test.go:131: Window completed with 20 aggregation results
+    e2e_test.go:122: Received 5 metrics from collectors
+    e2e_test.go:122: Received 5 metrics from collectors
+    e2e_test.go:122: Received 5 metrics from collectors
+    e2e_test.go:131: Window completed with 40 aggregation results
+    e2e_test.go:122: Received 5 metrics from collectors
+    e2e_test.go:122: Received 5 metrics from collectors
+    e2e_test.go:131: Window completed with 20 aggregation results
+    e2e_test.go:122: Received 5 metrics from collectors
+    e2e_test.go:122: Received 5 metrics from collectors
+    e2e_test.go:155: Pipeline stats: collections=14, persisted=140
+    e2e_test.go:169: Retrieved 140 metrics from storage
+    e2e_test.go:186: Resource distribution:
+    e2e_test.go:188:   cpu: 28 metrics
+    e2e_test.go:188:   memory: 112 metrics
+    e2e_test.go:191: Aggregation type distribution:
+    e2e_test.go:193:   last: 35 metrics
+    e2e_test.go:193:   min: 35 metrics
+    e2e_test.go:193:   max: 35 metrics
+    e2e_test.go:193:   avg: 35 metrics
+    e2e_test.go:196: Window size distribution:
+    e2e_test.go:198:   500ms: 100 metrics
+    e2e_test.go:198:   1s: 40 metrics
+    e2e_test.go:223: CPU metrics (500ms window): 20
+    e2e_test.go:245: Recent metrics (last 60s): 140
+--- PASS: TestE2E_FullPipeline (3.01s)
+=== RUN   TestE2E_LongRunning
+    e2e_test.go:344: Window completion counts:
+    e2e_test.go:346:   1s: 135 completions
+    e2e_test.go:346:   2s: 60 completions
+    e2e_test.go:346:   5s: 30 completions
+    e2e_test.go:363: Total metrics in database: 225
+--- PASS: TestE2E_LongRunning (10.01s)
+=== RUN   TestE2E_ConfigValidation
+=== RUN   TestE2E_ConfigValidation/valid_minimal
+=== RUN   TestE2E_ConfigValidation/invalid_interval
+=== RUN   TestE2E_ConfigValidation/invalid_resource
+=== RUN   TestE2E_ConfigValidation/invalid_window
+=== RUN   TestE2E_ConfigValidation/invalid_aggregation
+--- PASS: TestE2E_ConfigValidation (0.00s)
+    --- PASS: TestE2E_ConfigValidation/valid_minimal (0.00s)
+    --- PASS: TestE2E_ConfigValidation/invalid_interval (0.00s)
+    --- PASS: TestE2E_ConfigValidation/invalid_resource (0.00s)
+    --- PASS: TestE2E_ConfigValidation/invalid_window (0.00s)
+    --- PASS: TestE2E_ConfigValidation/invalid_aggregation (0.00s)
+=== RUN   TestCollectAggregatePersist
+    integration_test.go:117: Collected and persisted 135 aggregation results
+--- PASS: TestCollectAggregatePersist (3.01s)
+=== RUN   TestConfigLoadAndValidate
+--- PASS: TestConfigLoadAndValidate (0.00s)
+=== RUN   TestStorageRoundTrip
+--- PASS: TestStorageRoundTrip (0.01s)
+=== RUN   TestAggregationAccuracy
+--- PASS: TestAggregationAccuracy (0.15s)
+PASS
+ok  	github.com/etlmon/etlmon/internal	(cached)
+=== RUN   TestAvg_Empty
+--- PASS: TestAvg_Empty (0.00s)
+=== RUN   TestAvg_SingleValue
+--- PASS: TestAvg_SingleValue (0.00s)
+=== RUN   TestAvg_MultipleValues
+--- PASS: TestAvg_MultipleValues (0.00s)
+=== RUN   TestMax_Empty
+--- PASS: TestMax_Empty (0.00s)
+=== RUN   TestMax_SingleValue
+--- PASS: TestMax_SingleValue (0.00s)
+=== RUN   TestMax_MultipleValues
+--- PASS: TestMax_MultipleValues (0.00s)
+=== RUN   TestMax_NegativeValues
+--- PASS: TestMax_NegativeValues (0.00s)
+=== RUN   TestMin_Empty
+--- PASS: TestMin_Empty (0.00s)
+=== RUN   TestMin_SingleValue
+--- PASS: TestMin_SingleValue (0.00s)
+=== RUN   TestMin_MultipleValues
+--- PASS: TestMin_MultipleValues (0.00s)
+=== RUN   TestLast_Empty
+--- PASS: TestLast_Empty (0.00s)
+=== RUN   TestLast_SingleValue
+--- PASS: TestLast_SingleValue (0.00s)
+=== RUN   TestLast_MultipleValues
+--- PASS: TestLast_MultipleValues (0.00s)
+=== RUN   TestMetricBuffer_Add
+--- PASS: TestMetricBuffer_Add (0.00s)
+=== RUN   TestMetricBuffer_AddMultiple
+--- PASS: TestMetricBuffer_AddMultiple (0.00s)
+=== RUN   TestMetricBuffer_GetValues
+--- PASS: TestMetricBuffer_GetValues (0.00s)
+=== RUN   TestMetricBuffer_Clear
+--- PASS: TestMetricBuffer_Clear (0.00s)
+=== RUN   TestMetricBuffer_WindowStart
+--- PASS: TestMetricBuffer_WindowStart (0.00s)
+=== RUN   TestMetricBuffer_IsWindowComplete_NotComplete
+--- PASS: TestMetricBuffer_IsWindowComplete_NotComplete (0.00s)
+=== RUN   TestMetricBuffer_IsWindowComplete_Complete
+--- PASS: TestMetricBuffer_IsWindowComplete_Complete (0.00s)
+=== RUN   TestMetricBuffer_ResetWindow
+--- PASS: TestMetricBuffer_ResetWindow (0.00s)
+=== RUN   TestNewAggregator
+--- PASS: TestNewAggregator (0.00s)
+=== RUN   TestAggregator_Add
+--- PASS: TestAggregator_Add (0.00s)
+=== RUN   TestAggregator_AddToAllWindows
+--- PASS: TestAggregator_AddToAllWindows (0.00s)
+=== RUN   TestAggregator_CheckWindows_NoComplete
+--- PASS: TestAggregator_CheckWindows_NoComplete (0.00s)
+=== RUN   TestAggregator_CheckWindows_Complete
+--- PASS: TestAggregator_CheckWindows_Complete (0.00s)
+=== RUN   TestAggregator_MultipleResourceTypes
+--- PASS: TestAggregator_MultipleResourceTypes (0.00s)
+=== RUN   TestAggregator_GetResourceMetricKeys
+--- PASS: TestAggregator_GetResourceMetricKeys (0.00s)
+=== RUN   TestAggregationResult_Fields
+--- PASS: TestAggregationResult_Fields (0.00s)
+=== RUN   TestAggregator_EmptyBuffer
+--- PASS: TestAggregator_EmptyBuffer (0.00s)
+=== RUN   TestAggregator_GetWindowDurations
+--- PASS: TestAggregator_GetWindowDurations (0.00s)
+=== RUN   TestMetricBuffer_Duration
+--- PASS: TestMetricBuffer_Duration (0.00s)
+=== RUN   TestAggregator_LabelAwareAggregation
+--- PASS: TestAggregator_LabelAwareAggregation (0.15s)
+PASS
+ok  	github.com/etlmon/etlmon/internal/aggregator	(cached)
+=== RUN   TestCPUCollector_Type
+--- PASS: TestCPUCollector_Type (0.00s)
+=== RUN   TestMemoryCollector_Type
+--- PASS: TestMemoryCollector_Type (0.00s)
+=== RUN   TestDiskCollector_Type
+--- PASS: TestDiskCollector_Type (0.00s)
+=== RUN   TestCPUCollector_Collect
+--- PASS: TestCPUCollector_Collect (0.20s)
+=== RUN   TestMemoryCollector_Collect
+--- PASS: TestMemoryCollector_Collect (0.00s)
+=== RUN   TestDiskCollector_Collect
+--- PASS: TestDiskCollector_Collect (0.00s)
+=== RUN   TestManager_Register
+--- PASS: TestManager_Register (0.00s)
+=== RUN   TestManager_RegisterMultiple
+--- PASS: TestManager_RegisterMultiple (0.00s)
+=== RUN   TestManager_Start_ContextCancel
+--- PASS: TestManager_Start_ContextCancel (0.50s)
+=== RUN   TestManager_CollectOnce
+--- PASS: TestManager_CollectOnce (0.20s)
+=== RUN   TestMetric_Fields
+--- PASS: TestMetric_Fields (0.00s)
+=== RUN   TestIsPseudoFS
+--- PASS: TestIsPseudoFS (0.00s)
+=== RUN   TestNewDiskCollectorWithConfig_EmptyConfig
+--- PASS: TestNewDiskCollectorWithConfig_EmptyConfig (0.00s)
+=== RUN   TestNewDiskCollectorWithConfig_ConfiguredPaths
+--- PASS: TestNewDiskCollectorWithConfig_ConfiguredPaths (0.00s)
+=== RUN   TestDiskCollector_BackwardCompatibility
+--- PASS: TestDiskCollector_BackwardCompatibility (0.00s)
+=== RUN   TestStatsCollector_Name
+--- PASS: TestStatsCollector_Name (0.00s)
+=== RUN   TestStatsCollector_Collect
+--- PASS: TestStatsCollector_Collect (0.00s)
+=== RUN   TestStatsCollector_CollectInvalidPath
+--- PASS: TestStatsCollector_CollectInvalidPath (0.00s)
+=== RUN   TestDFCollector_Name
+--- PASS: TestDFCollector_Name (0.00s)
+=== RUN   TestDFCollector_Collect
+--- PASS: TestDFCollector_Collect (0.01s)
+=== RUN   TestDUCollector_Name
+--- PASS: TestDUCollector_Name (0.00s)
+=== RUN   TestDUCollector_Collect
+--- PASS: TestDUCollector_Collect (0.00s)
+=== RUN   TestParseDFOutput_Linux
+--- PASS: TestParseDFOutput_Linux (0.00s)
+=== RUN   TestParseDFOutput_MacOS
+--- PASS: TestParseDFOutput_MacOS (0.00s)
+=== RUN   TestParseDUOutput
+--- PASS: TestParseDUOutput (0.00s)
+=== RUN   TestParseDUOutput_MacOS
+--- PASS: TestParseDUOutput_MacOS (0.00s)
+=== RUN   TestGetMethodCollector
+--- PASS: TestGetMethodCollector (0.00s)
+=== RUN   TestCommandTimeout
+--- PASS: TestCommandTimeout (0.00s)
+PASS
+ok  	github.com/etlmon/etlmon/internal/collector	(cached)
+=== RUN   TestLoad_ValidConfig
+--- PASS: TestLoad_ValidConfig (0.00s)
+=== RUN   TestLoad_FileNotFound
+--- PASS: TestLoad_FileNotFound (0.00s)
+=== RUN   TestLoad_InvalidYAML
+--- PASS: TestLoad_InvalidYAML (0.00s)
+=== RUN   TestValidate_MissingInterval
+--- PASS: TestValidate_MissingInterval (0.00s)
+=== RUN   TestValidate_MissingResources
+--- PASS: TestValidate_MissingResources (0.00s)
+=== RUN   TestValidate_InvalidResource
+--- PASS: TestValidate_InvalidResource (0.00s)
+=== RUN   TestValidate_MissingWindows
+--- PASS: TestValidate_MissingWindows (0.00s)
+=== RUN   TestValidate_InvalidWindow
+--- PASS: TestValidate_InvalidWindow (0.00s)
+=== RUN   TestValidate_MissingAggregations
+--- PASS: TestValidate_MissingAggregations (0.00s)
+=== RUN   TestValidate_InvalidAggregation
+--- PASS: TestValidate_InvalidAggregation (0.00s)
+=== RUN   TestValidate_ValidConfig
+--- PASS: TestValidate_ValidConfig (0.00s)
+=== RUN   TestParseWindow_ValidFormats
+=== RUN   TestParseWindow_ValidFormats/1m
+=== RUN   TestParseWindow_ValidFormats/5m
+=== RUN   TestParseWindow_ValidFormats/1h
+=== RUN   TestParseWindow_ValidFormats/30s
+--- PASS: TestParseWindow_ValidFormats (0.00s)
+    --- PASS: TestParseWindow_ValidFormats/1m (0.00s)
+    --- PASS: TestParseWindow_ValidFormats/5m (0.00s)
+    --- PASS: TestParseWindow_ValidFormats/1h (0.00s)
+    --- PASS: TestParseWindow_ValidFormats/30s (0.00s)
+=== RUN   TestParseWindow_InvalidFormats
+=== RUN   TestParseWindow_InvalidFormats/#00
+=== RUN   TestParseWindow_InvalidFormats/abc
+=== RUN   TestParseWindow_InvalidFormats/1x
+=== RUN   TestParseWindow_InvalidFormats/-1m
+--- PASS: TestParseWindow_InvalidFormats (0.00s)
+    --- PASS: TestParseWindow_InvalidFormats/#00 (0.00s)
+    --- PASS: TestParseWindow_InvalidFormats/abc (0.00s)
+    --- PASS: TestParseWindow_InvalidFormats/1x (0.00s)
+    --- PASS: TestParseWindow_InvalidFormats/-1m (0.00s)
+=== RUN   TestGetWindowDurations
+--- PASS: TestGetWindowDurations (0.00s)
+PASS
+ok  	github.com/etlmon/etlmon/internal/config	(cached)
+=== RUN   TestNewSQLiteStore_CreateDB
+--- PASS: TestNewSQLiteStore_CreateDB (0.00s)
+=== RUN   TestNewSQLiteStore_InvalidPath
+--- PASS: TestNewSQLiteStore_InvalidPath (0.00s)
+=== RUN   TestInitialize_CreatesSchema
+--- PASS: TestInitialize_CreatesSchema (0.00s)
+=== RUN   TestInitialize_Idempotent
+--- PASS: TestInitialize_Idempotent (0.00s)
+=== RUN   TestSaveAggregatedMetric
+--- PASS: TestSaveAggregatedMetric (0.00s)
+=== RUN   TestSaveBatch
+--- PASS: TestSaveBatch (0.00s)
+=== RUN   TestGetMetrics_FilterByResourceType
+--- PASS: TestGetMetrics_FilterByResourceType (0.00s)
+=== RUN   TestGetMetrics_FilterByWindowSize
+--- PASS: TestGetMetrics_FilterByWindowSize (0.00s)
+=== RUN   TestGetMetrics_FilterByTimeRange
+--- PASS: TestGetMetrics_FilterByTimeRange (0.00s)
+=== RUN   TestGetMetrics_FilterByAggregationType
+--- PASS: TestGetMetrics_FilterByAggregationType (0.00s)
+=== RUN   TestGetMetrics_Limit
+--- PASS: TestGetMetrics_Limit (0.00s)
+=== RUN   TestGetLatestMetrics
+--- PASS: TestGetLatestMetrics (0.00s)
+=== RUN   TestClose
+--- PASS: TestClose (0.00s)
+=== RUN   ExampleSQLiteStore_SaveBatch
+--- PASS: ExampleSQLiteStore_SaveBatch (0.00s)
+=== RUN   ExampleSQLiteStore_GetMetrics
+--- PASS: ExampleSQLiteStore_GetMetrics (0.00s)
+=== RUN   ExampleSQLiteStore_GetLatestMetrics
+--- PASS: ExampleSQLiteStore_GetLatestMetrics (0.00s)
+PASS
+ok  	github.com/etlmon/etlmon/internal/storage	(cached)
+=== RUN   TestCaptureTUIOutput
+=== RUN   TestCaptureTUIOutput/RealtimeView
+    capture_test.go:121: RealtimeView output written to ../../docs/ui/realtime_view.txt
+=== RUN   TestCaptureTUIOutput/HistoryView
+    capture_test.go:298: HistoryView output written to ../../docs/ui/history_view.txt
+=== RUN   TestCaptureTUIOutput/StatusBar
+    capture_test.go:339: StatusBar output written to ../../docs/ui/status_bar.txt
+=== NAME  TestCaptureTUIOutput
+    capture_test.go:342: All TUI captures generated successfully!
+--- PASS: TestCaptureTUIOutput (0.00s)
+    --- PASS: TestCaptureTUIOutput/RealtimeView (0.00s)
+    --- PASS: TestCaptureTUIOutput/HistoryView (0.00s)
+    --- PASS: TestCaptureTUIOutput/StatusBar (0.00s)
+=== RUN   TestNewApp
+--- PASS: TestNewApp (0.00s)
+=== RUN   TestNewApp_HasRealtimeView
+--- PASS: TestNewApp_HasRealtimeView (0.00s)
+=== RUN   TestNewApp_HasHistoryView
+--- PASS: TestNewApp_HasHistoryView (0.00s)
+=== RUN   TestNewApp_HasStatusBar
+--- PASS: TestNewApp_HasStatusBar (0.00s)
+=== RUN   TestRealtimeView_Update
+--- PASS: TestRealtimeView_Update (0.00s)
+=== RUN   TestRealtimeView_UpdateThreadSafe
+--- PASS: TestRealtimeView_UpdateThreadSafe (0.00s)
+=== RUN   TestRealtimeView_GetText
+--- PASS: TestRealtimeView_GetText (0.00s)
+=== RUN   TestHistoryView_Update
+--- PASS: TestHistoryView_Update (0.00s)
+=== RUN   TestHistoryView_SetWindowFilter
+--- PASS: TestHistoryView_SetWindowFilter (0.00s)
+=== RUN   TestHistoryView_SetResourceFilter
+--- PASS: TestHistoryView_SetResourceFilter (0.00s)
+=== RUN   TestHistoryView_GetText
+--- PASS: TestHistoryView_GetText (0.00s)
+=== RUN   TestStatusBar_SetStatus
+--- PASS: TestStatusBar_SetStatus (0.00s)
+=== RUN   TestStatusBar_SetLastUpdate
+--- PASS: TestStatusBar_SetLastUpdate (0.00s)
+=== RUN   TestStatusBar_GetText
+--- PASS: TestStatusBar_GetText (0.00s)
+=== RUN   TestApp_SetStore
+--- PASS: TestApp_SetStore (0.00s)
+=== RUN   TestApp_OnMetricsCollected
+--- PASS: TestApp_OnMetricsCollected (0.00s)
+=== RUN   TestApp_OnAggregationComplete
+--- PASS: TestApp_OnAggregationComplete (0.00s)
+=== RUN   TestApp_SwitchView
+--- PASS: TestApp_SwitchView (0.00s)
+=== RUN   TestFormatBytes
+--- PASS: TestFormatBytes (0.00s)
+=== RUN   TestFormatDuration
+--- PASS: TestFormatDuration (0.00s)
+=== RUN   TestStore_Interface
+--- PASS: TestStore_Interface (0.00s)
+=== RUN   TestRealtimeView_ToggleDisplayFormat
+--- PASS: TestRealtimeView_ToggleDisplayFormat (0.00s)
+=== RUN   TestRealtimeView_SetDisplayFormat
+--- PASS: TestRealtimeView_SetDisplayFormat (0.00s)
+=== RUN   TestRealtimeView_FormatMetricsTable_CPU
+--- PASS: TestRealtimeView_FormatMetricsTable_CPU (0.00s)
+=== RUN   TestRealtimeView_FormatMetricsTable_Memory
+--- PASS: TestRealtimeView_FormatMetricsTable_Memory (0.00s)
+=== RUN   TestRealtimeView_FormatMetricsTable_Disk
+--- PASS: TestRealtimeView_FormatMetricsTable_Disk (0.00s)
+=== RUN   TestRealtimeView_FormatMetricsTable_MissingValues
+--- PASS: TestRealtimeView_FormatMetricsTable_MissingValues (0.00s)
+=== RUN   TestRealtimeView_TableColorCoding
+--- PASS: TestRealtimeView_TableColorCoding (0.00s)
+=== RUN   TestRealtimeView_TableMultipleDisks
+--- PASS: TestRealtimeView_TableMultipleDisks (0.00s)
+PASS
+ok  	github.com/etlmon/etlmon/internal/tui	0.256s
+✓ All tests passed
+
+Step 3: Running tests with coverage summary...
+	github.com/etlmon/etlmon/cmd/etlmon		coverage: 0.0% of statements
+ok  	github.com/etlmon/etlmon/internal	16.430s	coverage: [no statements]
+ok  	github.com/etlmon/etlmon/internal/aggregator	1.567s	coverage: 98.1% of statements
+ok  	github.com/etlmon/etlmon/internal/collector	1.871s	coverage: 88.6% of statements
+ok  	github.com/etlmon/etlmon/internal/config	1.181s	coverage: 77.4% of statements
+ok  	github.com/etlmon/etlmon/internal/storage	0.722s	coverage: 80.4% of statements
+ok  	github.com/etlmon/etlmon/internal/tui	0.471s	coverage: 80.4% of statements
+✓ Coverage summary complete
+
+Step 4: Generating coverage profile...
+	github.com/etlmon/etlmon/cmd/etlmon		coverage: 0.0% of statements
+ok  	github.com/etlmon/etlmon/internal	16.431s	coverage: [no statements]
+ok  	github.com/etlmon/etlmon/internal/aggregator	0.506s	coverage: 98.1% of statements
+ok  	github.com/etlmon/etlmon/internal/collector	1.361s	coverage: 88.6% of statements
+ok  	github.com/etlmon/etlmon/internal/config	0.132s	coverage: 77.4% of statements
+ok  	github.com/etlmon/etlmon/internal/storage	0.595s	coverage: 80.4% of statements
+ok  	github.com/etlmon/etlmon/internal/tui	0.676s	coverage: 80.4% of statements
+✓ Coverage profile generated
+
+Step 5: Generating HTML coverage report...
+✓ HTML coverage report generated: coverage.html
+
+Step 6: Running race detector...
+# github.com/etlmon/etlmon/internal/tui.test
+ld: warning: '/private/var/folders/c1/0_glvn5921g13dzksgtg6gph0000gn/T/go-link-1162235858/000019.o' has malformed LC_DYSYMTAB, expected 98 undefined symbols to start at index 1626, found 95 undefined symbols starting at index 1626
+ok  	github.com/etlmon/etlmon/internal/tui	1.294s
+✓ Race detector passed
+
+Step 7: Running go vet...
+✓ Static analysis passed
+
+==========================================
+✓ All verification checks passed!
+==========================================
+
+Coverage report available at: coverage.html

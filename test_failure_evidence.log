@@ -1,0 +1,6 @@
+--- FAIL: TestIntentionalFailure_DemonstratesFailureDetection (0.00s)
+    intentional_fail_test.go:9: This test intentionally fails to demonstrate failure detection
+    intentional_fail_test.go:10: INTENTIONAL FAILURE: This test verifies that the test framework correctly detects and reports failures
+FAIL
+FAIL	github.com/etlmon/etlmon/internal/tui	0.273s
+FAIL

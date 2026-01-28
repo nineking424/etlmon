@@ -89,6 +89,33 @@ install:
 dev:
 	find . -name '*.go' | entr -r make run
 
+# Comprehensive verification (build, test, coverage, race, vet)
+.PHONY: verify
+verify:
+	@echo "Running build check..."
+	$(GO) build ./...
+	@echo "Build check passed."
+	@echo ""
+	@echo "Running tests with verbose output..."
+	$(GO) test ./... -v
+	@echo ""
+	@echo "Generating coverage profile..."
+	$(GO) test ./... -coverprofile=coverage.out
+	@echo ""
+	@echo "Generating HTML coverage report..."
+	$(GO) tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+	@echo ""
+	@echo "Running race detector on TUI..."
+	$(GO) test -race ./internal/tui/...
+	@echo "Race detection passed."
+	@echo ""
+	@echo "Running go vet..."
+	$(GO) vet ./...
+	@echo "Go vet passed."
+	@echo ""
+	@echo "Verification successful!"
+
 # Show help
 .PHONY: help
 help:
@@ -109,4 +136,5 @@ help:
 	@echo "  make clean        - Clean build artifacts"
 	@echo "  make run          - Build and run with default config"
 	@echo "  make install      - Install to GOPATH/bin"
+	@echo "  make verify       - Run comprehensive verification"
 	@echo "  make help         - Show this help"
