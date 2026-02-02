@@ -16,7 +16,35 @@ Integration and end-to-end tests. Unit tests are co-located with source code (`*
 | `load_test.go` | Performance and load tests |
 | `testdata/` | Test fixtures and sample data |
 
+## TDD is MANDATORY
+
+> **This project follows strict Test-Driven Development.**
+> **Tests must be written BEFORE production code. No exceptions.**
+
+```
+RED → GREEN → REFACTOR
+
+1. Write a failing test that describes expected behavior
+2. Run test - confirm it FAILS (this is required!)
+3. Write minimal code to make test pass
+4. Run test - confirm it PASSES
+5. Refactor while keeping tests green
+6. Repeat
+```
+
 ## For AI Agents
+
+### TDD Protocol (MUST FOLLOW)
+
+Before writing ANY production code:
+
+1. **Create test file first** (`*_test.go`)
+2. **Write failing test** describing expected behavior
+3. **Run test** → must FAIL (RED)
+4. **Write production code** → just enough to pass
+5. **Run test** → must PASS (GREEN)
+6. **Refactor** if needed, keeping tests green
+7. **Repeat** for next functionality
 
 ### Working In This Directory
 
@@ -24,6 +52,7 @@ Integration and end-to-end tests. Unit tests are co-located with source code (`*
 - Keep test data in `testdata/` subdirectory
 - Mock external dependencies where appropriate
 - Tests should be runnable in CI
+- **Target coverage: 80%+ overall**
 
 ### Test Categories
 
