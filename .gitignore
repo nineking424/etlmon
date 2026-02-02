@@ -1,5 +1,8 @@
 # Binaries (at root level only)
 /etlmon
+/etlmon-node
+/etlmon-ui
+/node
 *.exe
 *.exe~
 *.dll
@@ -37,3 +40,7 @@ vendor/
 
 # Debug files
 __debug_bin*
+
+# Build artifacts
+bin/
+coverage.out

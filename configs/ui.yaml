@@ -1,0 +1,24 @@
+# etlmon UI Configuration
+# Copy to ~/.config/etlmon/ui.yaml and customize
+
+# Nodes to connect to
+nodes:
+  - name: prod-etl-01
+    address: http://10.0.0.11:8080
+
+  - name: prod-etl-02
+    address: http://10.0.0.12:8080
+
+  - name: staging
+    address: http://staging.internal:8080
+
+# UI settings
+ui:
+  # How often to refresh data from nodes
+  refresh_interval: 2s
+
+  # Which node to connect to on startup
+  default_node: prod-etl-01
+
+  # Theme (future)
+  # theme: dark
