@@ -1,0 +1,451 @@
+========================================
+PRD: etlmon — Node-based ETL / Filesystem / Process Monitor (Final)
+========================================
+
+문서 목적
+---------
+이 문서는 etlmon의 **최종 제품 요구사항(PRD)** 으로, 현재까지 논의된 모든 요구사항(파일시스템 사용량, 경로별 파일 카운트 주기, 로그 실시간 모니터링, 프로세스 모니터링 및 제어, cron 모니터링, vsftpd xferlog 파싱, UI/Node 분리, 내부 API Gateway, SQLite 저장소, 설정파일 분리 등)을 통합·정교화하여 구현·테스트·운영에 바로 투입 가능한 상세 설계 기준을 제공합니다.
+
+주요 결정사항(요약)
+-------------------
+- 제품명: **etlmon**
+- 아키텍처: Frontend (TUI client) ↔ Node (daemon) 구조
+  - UI는 Node의 HTTP API만 사용 (UI는 상태 비저장, 설정 불필요)
+  - Node는 로컬 수집기(Collector), API Gateway, SQLite DB를 포함하는 데몬
+- DB: **SQLite (etlmon.db)** — 로컬, WAL 모드, Node 단위 저장
+- TUI 스택: **Go + tcell + tview**
+- Node 언어/런타임: **Go** (단일 정적 바이너리)
+- 통신: HTTP JSON API (기본), 확장성 위해 unix-socket / TLS 가능
+- 보안 모델: 초기판은 신뢰 네트워크 가정, UI에서 제어(예: kill)는 명시적 확인 + 서버측 허용 정책
+- 핵심 설계 철학: 책임 분리(Read via API only), 비동기·비블로킹 수집, 운영 친화성(단일 바이너리, 최소 권한, 설정파일 분리)
+
+대상 사용자
+-----------
+- ETL 운영자, 데이터 플랫폼 엔지니어, SRE
+- 목표 인프라: Linux 서버(physical / VM), NFS 포함
+
+범위(What’s in / out)
+---------------------
+포함:
+- 마운트 단위 디스크 사용량 수집
+- 경로별 파일/디렉토리 카운트(주기적 스냅샷, 경로별 interval 설정)
+- 로그 파일 실시간 tail (fsnotify + offset; logrotate 대응)
+- 프로세스 모니터링(실행시간, CPU%, RSS) 및 kill 명령
+- cron 파싱 및 next_run 계산
+- vsftpd xferlog 파싱(관심 컬럼 추출)
+- UI(다중 Node 접속)와 Node 분리, API Gateway
+- SQLite 기반 로컬 저장, retention/TTL 정책
+
+비포함(Out of scope):
+- 중앙집중 DB/aggregator (v2에서 고려)
+- 인증·권한관리(초기판에서는 네트워크/운영자 신뢰 가정)
+- 웹 UI(향후 확장 가능)
+- 컨테이너 내부 모니터링(별도 설계 필요)
+
+가정 및 제약
+-------------
+- 사용자 네트워크는 신뢰 가능한 환경(내부망)이다.
+- Node는 로컬 파일 시스템 접근 권한(읽기, 로그 읽기, /proc 접근)이 있다.
+- SQLite 파일은 Node 호스트에 로컬로 유지된다.
+- Node는 시스템 권한(프로세스 kill 등)이 필요할 때 운영자가 권한을 부여해야 한다.
+
+아키텍처 상세
+=============
+
+# 아키텍처 개요
+- UI(Client: etlmon ui)
+  - tview 기반 TUI
+  - ui.yaml 에서 Node 목록(주소, 이름, optional auth)만 관리
+  - Node의 API를 폴링하여 화면 갱신, 제어는 API 호출
+- Node(Daemon: etlmon node)
+  - Collector Subsystem: DiskCollector, PathScanner, LogTailer, ProcessCollector, CronCollector, XferlogCollector
+  - API Gateway: Query API + Command API (HTTP JSON)
+  - Storage: SQLite(etlmon.db) — Collector는 DB에만 쓰며 API는 DB에서 읽음
+  - Controller: 외부 명령 처리 (kill, immediate-scan trigger 등)
+- 통신: 기본 HTTP (JSON). 내부에서는 Go interface를 통해 호출 가능. (추후 unix-socket/TLS 전환 용이)
+
+# 데이터 흐름(요약)
+1. Collector(s) -> 수집 결과를 SQLite에 INSERT/UPDATE (Node-local)
+2. UI -> Node API (Query) -> Node가 DB에서 SELECT 후 JSON으로 응답
+3. UI 제어 요청 (예: kill) -> Node API (Command) -> Node가 안전 검증 후 제어 수행
+
+Node 실행 모델(Collector)
+------------------------
+- 각 Collector는 독립 goroutine 집합으로 동작
+- 장기 작업(파일 카운트)은 반드시 백그라운드 스케줄러(경로별 ticker) 사용
+- UI에서의 리프레시 주기와 수집 주기는 완전 분리
+- 수집 결과는 즉시 etlmon.db에 기록(짧은 트랜잭션), 실패시 에러 상황을 path_stats 등에 기록
+
+데이터 저장 (SQLite)
+-------------------
+운영 정책:
+- journal_mode = WAL
+- synchronous = NORMAL
+- 단일 Writer 규칙: Node의 Collector만 쓰기, API는 읽기(Read-only transaction)
+- 트랜잭션: Writer는 작은 배치(예: path_stats 여러 경로 동시 업데이트 시 BEGIN/COMMIT), 긴 트랜잭션 금지
+- vacuum / WAL checkpoint 스케줄링(관리자 cron 또는 node 내장 유지관리)
+- retention: log_lines / xferlog_entries 테이블은 TTL 또는 최대 행수 기준 purge 기능 필요(설정 가능)
+
+권장 DB 스키마 (초안)
+--------------------
+1) filesystem_usage
+- mount_point TEXT
+- total_bytes INTEGER
+- used_bytes INTEGER
+- avail_bytes INTEGER
+- used_percent REAL
+- collected_at DATETIME
+- PRIMARY KEY(mount_point, collected_at) 또는 keep latest via query
+
+2) path_stats
+- path TEXT PRIMARY KEY
+- file_count INTEGER
+- dir_count INTEGER
+- scan_duration_ms INTEGER
+- status TEXT    -- OK / SCANNING / ERROR
+- error_message TEXT
+- collected_at DATETIME
+
+3) log_lines
+- id INTEGER PRIMARY KEY AUTOINCREMENT
+- log_name TEXT
+- log_path TEXT
+- line TEXT
+- created_at DATETIME
+- source_inode INTEGER (optional, for rotate handling)
+
+4) process_stats
+- pid INTEGER
+- process_name TEXT
+- cmdline TEXT
+- start_time DATETIME
+- runtime_sec INTEGER
+- cpu_percent REAL
+- mem_rss_bytes INTEGER
+- status TEXT    -- RUNNING / STOPPED
+- collected_at DATETIME
+- PRIMARY KEY(pid)  -- or composite with collected_at if history required
+
+5) cron_jobs
+- job_id INTEGER PRIMARY KEY AUTOINCREMENT
+- schedule TEXT   -- cron expression
+- command TEXT
+- user TEXT
+- source TEXT     -- system/user
+- next_run DATETIME
+- last_checked DATETIME
+
+6) xferlog_entries
+- id INTEGER PRIMARY KEY AUTOINCREMENT
+- log_time DATETIME
+- remote_host TEXT
+- username TEXT
+- filename TEXT
+- bytes INTEGER
+- transfer_time_sec INTEGER
+- direction TEXT   -- upload/download
+- status TEXT
+
+7) meta / migrations
+- schema_version INTEGER
+- key TEXT
+- value TEXT
+
+API Gateway (Node) — 엔드포인트 설계 (초안)
+-----------------------------------------
+일반 원칙
+- 모든 Query API는 GET, Command API는 POST/DELETE로 구분
+- 응답은 JSON, 가능한 한 경량화 (UI에서 페이로드 크기를 고려)
+- 페이징/리미트(예: log_lines, xferlog_entries)는 반드시 지원
+- read-only 요청은 DB에서 read transaction으로 처리
+- Command API는 내부 검증(권한, rate-limit, confirmation token) 수행
+
+주요 엔드포인트 (예시)
+1) Filesystem
+- GET /api/v1/fs
+  - 설명: 모든 마운트의 최신 사용량 목록 반환
+  - 응답: [{mount_point, total_bytes, used_bytes, avail_bytes, used_percent, collected_at}, ...]
+
+2) Paths
+- GET /api/v1/paths
+  - 설명: 설정된 경로들의 최신 path_stats 반환
+  - 쿼리: ?limit=&offset=
+- POST /api/v1/paths/scan
+  - 설명: 즉시 스캔 트리거 (옵션: list of paths)
+  - 권한: 관리자 확인 필요
+
+3) Logs
+- GET /api/v1/logs
+  - 설명: 등록된 로그 목록 및 메타
+- GET /api/v1/logs/{logName}?lines=100&follow=true
+  - 설명: 최신 N라인 또는 follow용 스트리밍(서버센트 이벤트 또는 websocket 옵션)
+- POST /api/v1/logs/{logName}/pause (또는 body에 action)
+
+4) Processes
+- GET /api/v1/processes
+  - 설명: 관찰 대상 프로세스 목록과 최신 process_stats
+- POST /api/v1/processes/{pid}/kill
+  - body: {signal: "SIGTERM"|"SIGKILL", confirm: true}
+  - 동작: 서버측에서 안전성 체크 후 kill 수행, 결과 반환
+
+5) Cron
+- GET /api/v1/cron
+  - 설명: cron_jobs 목록
+- POST /api/v1/cron/refresh
+  - 설명: crontab 재파싱 트리거
+
+6) Xferlog
+- GET /api/v1/xferlog?limit=100
+  - 설명: 최근 FTP 전송 내역(파싱된 컬럼)
+
+7) Health & Admin
+- GET /api/v1/health
+- POST /api/v1/admin/db/compact  (관리자용: VACUUM / checkpoint)
+- GET /api/v1/metrics  (내부 운영용, Prometheus 노출 고려 시 사용)
+
+구현/동작 상세
+==============
+
+Path Scanner (파일 카운트)
+- 동작: 각 경로별 goroutine + ticker 기반 스케줄링
+- 설정: scan_interval, max_depth, exclude patterns, max_files_per_scan, timeout
+- 안전장치:
+  - 이전 스캔 미완료 시 새 스캔 스킵(또는 큐잉 대신 스킵)
+  - scan timeout (context.WithTimeout)
+  - NFS 보호용 throttle (max IO ops per second configurable)
+- 병렬화:
+  - worker pool (goroutines)로 디렉토리 분기 처리
+  - 메모리 및 파일 디스크립터 제한을 엄격히 적용
+
+Log Tailer
+- 동작: fsnotify + file handle + ReadAt(offset)
+- 초기 동작: open 파일, seek to end (configurable: start from beginning option)
+- logrotate 처리:
+  - inode 변경 감지 -> reopen new file and continue
+  - truncation 처리(파일 크기 줄어들면 offset reset)
+- 저장: 신규 라인 DB append (batch insert 가능)
+- UI: follow 옵션 제공. UI는 poll 방식으로 최신 N라인 요청 또는 SSE/websocket stream
+
+Process Collector & Kill
+- 수집:
+  - /proc/[pid]/stat, /proc/[pid]/status, /proc/[pid]/cmdline 사용
+  - CPU% 계산은 이전 샘플과의 delta 기반(전체 CPU 시간 기준)
+  - 메모리: RSS 바이트 수
+- 식별:
+  - 설정에서 name/cmd pattern 또는 PID 직접 지정
+  - 프로세스 재시작/죽음 감지: existence check
+- 제어:
+  - kill API는 UI에서 confirm required
+  - Node 내부에서 권한 확인(UID, sudo 등)
+  - kill 결과(성공/에러)를 API 통해 즉시 반환
+
+Cron Collector
+- 파싱:
+  - /etc/crontab, /var/spool/cron/crontabs/*, 사용자 crontab 파싱
+  - cron 표현식에서 next_run 계산(lib: robfig/cron or cronexpr)
+- UI: 각 job의 next_run, schedule, user, command 표시
+- 변경 감지: 파일 변경(fsnotify) 또는 주기적 재파싱
+
+Xferlog Parser (vsftpd)
+- 포맷: vsftpd xferlog 표준(공백/필드 기준) 파서
+- 추출 컬럼: time, remote_host, username, filename, bytes, transfer_time, direction, status
+- 저장: xferlog_entries 테이블 append
+- 주의사항: 대용량로그에서 파싱 부담 방지(파싱 window 및 상태저장)
+
+UI (TUI) 상세
+=============
+UI 원칙
+- Node의 API만 호출 (DB 직접 접근 없음)
+- 기본 Node 접속 주소: localhost:8080 (ui.yaml에서 설정)
+- 다중 Node 지원: Node 탭 전환 또는 병렬 목록
+- 반응성: UI redraw는 가청 주기(예: 500ms throttle) 적용
+- 장애 표시: Node 접속 실패, DB 오류, Collector 상태를 분명히 노출
+
+UI 화면(주요)
+- Node List / Status 요약 화면
+  - Node별 heartbeat, last_seen, collector 상태
+- FS View
+  - 마운트별 사용량, 경고 색상(임계치 기반)
+- Path View
+  - 각 경로 file_count, last_scan, Duration, status
+  - 상세: top-N 큰 파일/디렉토리(확장 기능)
+- Log View
+  - follow/pause, filter(정규식), timestamp 형식 변경
+- Process View
+  - list of watched processes, CPU/MEM, runtime, action(d: kill)
+- Cron View
+  - job list, next_run, last_checked
+- Xferlog View
+  - recent transfers, filter by user/filename/host
+
+키맵(권장)
+- 글로벌: q=quit, ?:help
+- View: j/k 이동, enter 상세, esc back
+- Process View: d 키로 kill dialog (confirm)
+- Log View: f follow, p pause, / search
+
+설정 파일 (분리된 예시)
+======================
+UI 설정 (ui.yaml) — UI는 Node 접속 정보만 관리
+nodes:
+  - name: prod-etl-01
+    address: http://10.0.0.11:8080
+  - name: prod-etl-02
+    address: http://10.0.0.12:8080
+ui:
+  refresh_interval: 2s
+  default_node: prod-etl-01
+
+Node 설정 (node.yaml) — Node는 수집 설정 포함
+node:
+  listen: 0.0.0.0:8080
+  node_name: prod-etl-01
+  db_path: /var/lib/etlmon/etlmon.db
+
+refresh:
+  disk: 15s
+  default_path_scan: 5m
+  process: 5s
+
+paths:
+  - path: /data/logs
+    scan_interval: 1m
+    max_depth: 5
+    exclude:
+      - "*.tmp"
+
+logs:
+  - name: app
+    path: /var/log/app.log
+    follow: true
+    buffer_lines: 500
+
+process_watch:
+  - name: etl_worker
+    match: "etl_worker"
+  - pid: 12345
+
+cron:
+  enabled: true
+
+xferlog:
+  path: /var/log/xferlog
+  parse_start: "2026-01-01T00:00:00Z"
+
+운영/성능 목표 및 SLO
+====================
+- UI 응답성: 주요 화면 전환 ≤ 200ms (Node 응답 포함, 로컬 network)
+- Path scan: 대용량(수십만) 경로에서 각 scan이 UI를 블로킹하지 않음
+- Log tail: 새로운 라인 수백/sec 까지 버퍼링 후 DB batch insert 가능
+- DB 크기: log_lines 및 xferlog_entries는 기본 retention 7일 또는 max_rows=100000(설정 가능)
+- 프로세스 모니터 주기 기본 5s (configurable)
+
+장애/예외 시나리오 및 처리
+=========================
+- Node offline: UI에서 명확 표기, 재시도 로직(지수백오프)
+- DB lock contention: WAL모드 유지, write batch 크기 제한, checkpoint 작업 예약
+- scan 타임아웃: context timeout 발생 시 status=ERROR, error_message 저장
+- logrotate: inode 변경 처리, 파일 재오픈 실패 시 retry/backoff
+- kill 실패: error 반환 및 UI에서 상세 에러 표시
+
+보안 및 안전장치
+================
+- kill/command API는 반드시 UI에서 confirmation 필요
+- Node 실행 권한: 최소 권한 원칙 — 프로세스 제어 기능은 Node 실행자가 갖는 권한에 의존
+- 향후 확장: TLS, mutual TLS, token-based auth를 API 레이어에 추가 권장
+
+배포/운영
+=========
+- Node: systemd 서비스 단위 제공(예: /etc/systemd/system/etlmon-node.service)
+- UI: 운영자 로컬 바이너리 실행 또는 원격에서 SSH 터널을 통해 접속
+- DB backup: etlmon node에서 정기적으로 etlmon.db 백업(운영 정책)
+- 로그/메트릭: Node 자체의 operational log와 /metrics 엔드포인트 제공(프로메테우스 연계 가능)
+
+테스트 전략
+===========
+- 단위 테스트: Collector 함수, parsers(xferlog), cron parser, DB layer
+- 통합 테스트: Node start -> Collector write -> API read -> UI render (자동화)
+- 부하 테스트:
+  - Path scan on NFS with 100k files
+  - Log tail ingestion at 500 lines/sec
+- 안전성 테스트:
+  - logrotate 시나리오
+  - DB full / disk full 시나리오
+
+마이그레이션 & 업그레이드 전략
+=============================
+- DB 스키마 변경: migrations 테이블(schema_version) + migration scripts
+- Node 업그레이드: rolling upgrade 권장(무중단, Node별 재시작)
+- UI 호환성: API 버전 관리 (/api/v1/...), backward-compatible changes 원칙
+
+로드맵 (MVP → v1 → v2)
+=====================
+MVP (2주 목표, 핵심 동작)
+- Node: disk collector, path scanner (per-path interval), SQLite write, basic API endpoints
+- UI: connect to single node, FS view, Path view, basic keymap
+- Config: node.yaml, ui.yaml
+- Tests: path scan correctness, API basic tests
+
+v1 (4~6주)
+- Log tailer (fsnotify, rotate), log_lines DB, Log View follow
+- Process collector, process view, kill API with confirm
+- Cron parsing, cron view
+- xferlog parsing and view
+- Retention/purge jobs and DB maintenance endpoints
+
+v2 (후속)
+- Authentication (TLS, token)
+- Web UI (optional)
+- Central aggregator / multi-node historical view
+- Prometheus metrics endpoint, alerting integration
+
+운영 체크리스트 (롤아웃 전)
+===========================
+- Node의 권한(특히 /proc 접근 및 kill 권한) 검토
+- DB 저장 위치 및 디스크 용량 계획
+- retention 정책 설정 (logs/xferlog)
+- systemd unit + logrotate 정책(etlmon 자체 로그)
+- 백업 및 복원 절차 문서화
+
+개발 가이드라인 (코드 품질)
+==========================
+- Go Modules 사용, 최소 Go 1.20
+- 명확한 인터페이스 분리(API Gateway interface)
+- Collector 별 책임 단위로 패키지 분리(core/collector/{disk,path,log,proc,cron,xferlog})
+- DB access는 작은 추상 레이어를 통해서만 직접 호출 (repository 패턴)
+- 컨텍스트(context.Context) 엄격 사용(취소, 타임아웃)
+- 에러는 wrapping 하여 상위로 전달(fmt.Errorf + %w)
+
+추가 고려사항 / 미결정 항목
+=========================
+- 인증 방식(TLS/mTLS or token) — 초기판에서는 미적용, 운영 환경 요구에 따라 우선순위 조정
+- 로그 스트리밍 방식: polling vs SSE/websocket — UI 요구사항에 따라 선택 (MVP는 polling)
+- Central aggregator 필요성 — 사용자 요구에 맞춰 별도 서비스로 분리 가능
+
+부록: 예제 CLI 사용
+====================
+1) Node 실행
+   ./etlmon node -c /etc/etlmon/node.yaml
+
+2) UI 실행 (로컬)
+   ./etlmon ui -c ~/.config/etlmon/ui.yaml
+
+3) Node API 호출 예시
+   curl http://localhost:8080/api/v1/fs
+
+다음 단계(권장)
+==============
+1. 본 PRD를 기준으로 **API 명세(완전한 request/response JSON 스키마)** 문서화
+2. DB 마이그레이션 스크립트 초안 및 schema_version 관리 구현
+3. MVP 코드 스켈레톤(Go): Node main, Collector scaffold, API Gateway 인터페이스, SQLite 초기화
+4. 단위 테스트 케이스 설계(특히 path scanner, log tailer, xferlog parser)
+5. 운영 가이드 초안(설치, systemd unit, 백업/복구)
+
+최종 메모(책임선언)
+=================
+이 PRD는 지금까지 주고받은 요구사항을 최대한 상세·정합적으로 통합한 최종 설계 문서입니다.  
+운영 환경(예: NFS 특성, 파일 시스템 유형, 권한 정책, 보안 규정)에 따라 일부 구현 세부(특히 권한·보안·retention 정책)는 조정이 필요합니다. 구현 단계에서 발견되는 현실적 제약(예: extremely large directories, inode 한계 등)은 개발·운영팀과 협의하여 설계 변경을 진행하시기 바랍니다.
+
+========================================
+END OF PRD
+========================================
