@@ -11,7 +11,8 @@ import (
 
 // PathsView displays path statistics
 type PathsView struct {
-	table *tview.Table
+	table     *tview.Table
+	tableMode bool // true = with borders, false = compact
 }
 
 // NewPathsView creates a new paths view
@@ -31,9 +32,24 @@ func NewPathsView() *PathsView {
 		table.SetCell(0, i, cell)
 	}
 
-	return &PathsView{
-		table: table,
+	v := &PathsView{
+		table:     table,
+		tableMode: false,
 	}
+
+	// Set up key handlers
+	table.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Rune() {
+		case 'T':
+			// Toggle table format
+			v.tableMode = !v.tableMode
+			v.table.SetBorders(v.tableMode)
+			return nil
+		}
+		return event
+	})
+
+	return v
 }
 
 // Name returns the view name
@@ -103,6 +119,24 @@ func (v *PathsView) refresh(ctx context.Context, client APIClient) error {
 // Focus sets focus on the table
 func (v *PathsView) Focus() {
 	// Nothing special needed for table focus
+}
+
+// TriggerScan triggers a manual scan for all paths currently displayed
+func (v *PathsView) TriggerScan(ctx context.Context, client *client.Client) error {
+	// Collect all paths from the current table
+	var paths []string
+	rowCount := v.table.GetRowCount()
+	for i := 1; i < rowCount; i++ { // Skip header row
+		if cell := v.table.GetCell(i, 0); cell != nil {
+			paths = append(paths, cell.Text)
+		}
+	}
+
+	if len(paths) == 0 {
+		return fmt.Errorf("no paths to scan")
+	}
+
+	return client.TriggerScan(ctx, paths)
 }
 
 // formatDuration formats milliseconds into human-readable string

@@ -19,7 +19,8 @@ type APIClient interface {
 
 // FSView displays filesystem usage statistics
 type FSView struct {
-	table *tview.Table
+	table     *tview.Table
+	tableMode bool
 }
 
 // NewFSView creates a new filesystem view
@@ -39,9 +40,23 @@ func NewFSView() *FSView {
 		table.SetCell(0, i, cell)
 	}
 
-	return &FSView{
-		table: table,
+	v := &FSView{
+		table:     table,
+		tableMode: false,
 	}
+
+	// Set up input capture for table toggle
+	v.table.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Rune() {
+		case 'T':
+			v.tableMode = !v.tableMode
+			v.table.SetBorders(v.tableMode)
+			return nil
+		}
+		return event
+	})
+
+	return v
 }
 
 // Name returns the view name

@@ -4,46 +4,61 @@ import (
 	"context"
 
 	"github.com/etlmon/etlmon/ui/client"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 // HelpView displays keybindings and help information
 type HelpView struct {
-	modal *tview.Modal
+	textView *tview.TextView
+	onClose  func()
 }
 
 // NewHelpView creates a new help view
 func NewHelpView() *HelpView {
-	modal := tview.NewModal().
-		SetText(`etlmon - ETL Pipeline Monitor
+	textView := tview.NewTextView().
+		SetDynamicColors(true).
+		SetWordWrap(true).
+		SetText(`[yellow::b]etlmon TUI - Keyboard Shortcuts[-::-]
 
-Keybindings:
-  F / f       - Switch to Filesystem view
-  P / p       - Switch to Paths view
-  R / r       - Refresh current view
-  S / s       - Trigger scan (Paths view only)
-  Q / q       - Quit application
-  ? / h       - Show this help
+[green::b]Navigation:[-::-]
+  1       Switch to Filesystem view
+  2       Switch to Paths view
+  ?/h     Show this help
 
-Navigation:
-  Arrow keys  - Move selection
-  Tab         - Cycle through views
-  Enter       - Select item (context-dependent)
+[green::b]Actions:[-::-]
+  r       Refresh current view
+  s       Trigger path scan (Paths view)
+  T       Toggle table borders
 
-Views:
-  Filesystem  - Shows disk usage for mounted filesystems
-  Paths       - Shows file/directory counts for monitored paths
+[green::b]General:[-::-]
+  q       Quit application
+  Ctrl+C  Force quit
 
-For more information, visit:
-  https://github.com/etlmon/etlmon`).
-		AddButtons([]string{"Close"}).
-		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-			// This will be handled by the app controller
-		})
+[yellow]Press any key to return...[-]`)
 
-	return &HelpView{
-		modal: modal,
+	textView.SetBorder(true).
+		SetTitle(" Help ").
+		SetTitleAlign(tview.AlignCenter)
+
+	view := &HelpView{
+		textView: textView,
 	}
+
+	// Set input capture to close help on any key press
+	textView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if view.onClose != nil {
+			view.onClose()
+		}
+		return nil
+	})
+
+	return view
+}
+
+// SetCloseHandler sets the function to call when closing help
+func (v *HelpView) SetCloseHandler(handler func()) {
+	v.onClose = handler
 }
 
 // Name returns the view name
@@ -53,7 +68,7 @@ func (v *HelpView) Name() string {
 
 // Primitive returns the tview primitive
 func (v *HelpView) Primitive() tview.Primitive {
-	return v.modal
+	return v.textView
 }
 
 // Refresh is a no-op for help view
