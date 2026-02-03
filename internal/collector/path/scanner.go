@@ -135,6 +135,12 @@ func (s *PathScanner) ScanPath(ctx context.Context, cfg PathConfig) (*models.Pat
 	return stats, nil
 }
 
+// ScanPaths implements the PathScanner interface for the API server.
+// It wraps TriggerScan with a background context.
+func (s *PathScanner) ScanPaths(paths []string) error {
+	return s.TriggerScan(context.Background(), paths)
+}
+
 // TriggerScan manually triggers a scan for specific paths
 func (s *PathScanner) TriggerScan(ctx context.Context, paths []string) error {
 	for _, path := range paths {

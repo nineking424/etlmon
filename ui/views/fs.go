@@ -19,8 +19,9 @@ type APIClient interface {
 
 // FSView displays filesystem usage statistics
 type FSView struct {
-	table     *tview.Table
-	tableMode bool
+	table          *tview.Table
+	tableMode      bool
+	onStatusChange func(msg string, isError bool)
 }
 
 // NewFSView creates a new filesystem view
@@ -51,6 +52,13 @@ func NewFSView() *FSView {
 		case 'T':
 			v.tableMode = !v.tableMode
 			v.table.SetBorders(v.tableMode)
+			if v.onStatusChange != nil {
+				if v.tableMode {
+					v.onStatusChange("Borders: ON", false)
+				} else {
+					v.onStatusChange("Borders: OFF", false)
+				}
+			}
 			return nil
 		}
 		return event
@@ -127,6 +135,11 @@ func (v *FSView) refresh(ctx context.Context, client APIClient) error {
 // Focus sets focus on the table
 func (v *FSView) Focus() {
 	// Nothing special needed for table focus
+}
+
+// SetStatusCallback sets the callback for status messages
+func (v *FSView) SetStatusCallback(cb func(msg string, isError bool)) {
+	v.onStatusChange = cb
 }
 
 // formatBytes formats bytes into human-readable string

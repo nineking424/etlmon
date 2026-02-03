@@ -11,8 +11,9 @@ import (
 
 // PathsView displays path statistics
 type PathsView struct {
-	table     *tview.Table
-	tableMode bool // true = with borders, false = compact
+	table          *tview.Table
+	tableMode      bool // true = with borders, false = compact
+	onStatusChange func(msg string, isError bool)
 }
 
 // NewPathsView creates a new paths view
@@ -44,6 +45,13 @@ func NewPathsView() *PathsView {
 			// Toggle table format
 			v.tableMode = !v.tableMode
 			v.table.SetBorders(v.tableMode)
+			if v.onStatusChange != nil {
+				if v.tableMode {
+					v.onStatusChange("Borders: ON", false)
+				} else {
+					v.onStatusChange("Borders: OFF", false)
+				}
+			}
 			return nil
 		}
 		return event
@@ -119,6 +127,11 @@ func (v *PathsView) refresh(ctx context.Context, client APIClient) error {
 // Focus sets focus on the table
 func (v *PathsView) Focus() {
 	// Nothing special needed for table focus
+}
+
+// SetStatusCallback sets the callback for status messages
+func (v *PathsView) SetStatusCallback(cb func(msg string, isError bool)) {
+	v.onStatusChange = cb
 }
 
 // TriggerScan triggers a manual scan for all paths currently displayed

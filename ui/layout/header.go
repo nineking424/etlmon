@@ -21,11 +21,12 @@ func NewHeader() *Header {
 		resource: tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignRight),
 	}
 
-	// Horizontal layout: Logo (fixed) | Context (proportional) | Resource (fixed)
+	// Horizontal layout: Logo | Context | Resource (all proportional for responsiveness)
+	// Logo gets 2 parts, Context gets 3 parts (most flexible), Resource gets 1 part
 	h.flex.SetDirection(tview.FlexColumn).
-		AddItem(h.logo, 45, 0, false).
-		AddItem(h.context, 0, 1, false).
-		AddItem(h.resource, 30, 0, false)
+		AddItem(h.logo, 0, 2, false).
+		AddItem(h.context, 0, 3, false).
+		AddItem(h.resource, 0, 1, false)
 
 	return h
 }

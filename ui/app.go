@@ -37,6 +37,17 @@ func (a *App) AddView(v View) {
 		a.current = v.Name()
 	}
 
+	// Set status callback if view supports it
+	type statusCallbackSetter interface {
+		SetStatusCallback(func(msg string, isError bool))
+	}
+	if setter, ok := v.(statusCallbackSetter); ok {
+		setter.SetStatusCallback(func(msg string, isError bool) {
+			a.layout.SetMessage(msg, isError)
+			a.tview.Draw()
+		})
+	}
+
 	// Setup close handler for help view
 	if v.Name() == "help" {
 		if helpView, ok := v.(interface{ SetCloseHandler(func()) }); ok {
@@ -116,9 +127,15 @@ func (a *App) Run() error {
 		case 'r':
 			// Refresh current view
 			if view, ok := a.views[a.current]; ok {
+				a.layout.SetMessage("Refreshing...", false)
+				a.tview.Draw()
 				go func() {
 					ctx := context.Background()
-					view.Refresh(ctx, a.client)
+					if err := view.Refresh(ctx, a.client); err != nil {
+						a.layout.SetMessage(err.Error(), true)
+					} else {
+						a.layout.SetMessage("Refreshed", false)
+					}
 					a.layout.RefreshTimestamp()
 					a.tview.Draw()
 				}()

@@ -76,6 +76,7 @@ func main() {
 
 	// Create and start API server
 	server := api.NewServer(cfg.Node.Listen, repo, cfg.Node.NodeName)
+	server.SetPathScanner(pathScanner)
 
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
