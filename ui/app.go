@@ -128,6 +128,10 @@ func (a *App) Run() error {
 			}
 			return nil
 		case 'q':
+			// In help view, let the view handle it to return to previous view
+			if a.current == "help" {
+				return event
+			}
 			a.tview.Stop()
 			return nil
 		}
