@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/etlmon/etlmon/ui/client"
+	"github.com/etlmon/etlmon/ui/layout"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -13,6 +14,7 @@ import (
 type App struct {
 	tview    *tview.Application
 	client   *client.Client
+	layout   *layout.Layout
 	views    map[string]View
 	current  string
 	previous string
@@ -23,6 +25,7 @@ func NewApp(client *client.Client) *App {
 	return &App{
 		tview:  tview.NewApplication(),
 		client: client,
+		layout: layout.NewLayout(),
 		views:  make(map[string]View),
 	}
 }
@@ -55,7 +58,10 @@ func (a *App) SwitchView(name string) {
 	if view, ok := a.views[name]; ok {
 		a.previous = a.current
 		a.current = name
-		a.tview.SetRoot(view.Primitive(), true)
+
+		// Use layout for content instead of setting view as root
+		a.layout.SetContent(view.Primitive())
+		a.layout.SetActiveView(name)
 		view.Focus()
 
 		// Refresh the view
@@ -73,15 +79,27 @@ func (a *App) Run() error {
 		return fmt.Errorf("no views registered")
 	}
 
+	// Set layout as root
+	a.tview.SetRoot(a.layout.Root(), true)
+
+	// Set initial context
+	a.layout.SetContext("localhost:8080", "connecting...")
+
 	// Set initial view
 	view := a.views[a.current]
-	a.tview.SetRoot(view.Primitive(), true)
+	a.layout.SetContent(view.Primitive())
+	a.layout.SetActiveView(a.current)
 
 	// Initial refresh
 	ctx := context.Background()
 	if err := view.Refresh(ctx, a.client); err != nil {
+		a.layout.SetMessage(err.Error(), true)
 		return fmt.Errorf("initial refresh: %w", err)
 	}
+
+	// Update context after successful connection
+	a.layout.SetContext("localhost:8080", "connected")
+	a.layout.SetMessage("Ready", false)
 
 	// Set up key bindings
 	a.tview.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -101,6 +119,7 @@ func (a *App) Run() error {
 				go func() {
 					ctx := context.Background()
 					view.Refresh(ctx, a.client)
+					a.layout.RefreshTimestamp()
 					a.tview.Draw()
 				}()
 			}
@@ -112,11 +131,13 @@ func (a *App) Run() error {
 					TriggerScan(context.Context, *client.Client) error
 				}
 				if pathsView, ok := a.views["paths"].(scanTrigger); ok {
+					a.layout.SetMessage("Scanning...", false)
 					go func() {
 						ctx := context.Background()
 						if err := pathsView.TriggerScan(ctx, a.client); err != nil {
-							// Silently ignore errors for now
-							// TODO: Add status bar to display errors
+							a.layout.SetMessage(err.Error(), true)
+						} else {
+							a.layout.SetMessage("Scan complete", false)
 						}
 						// Refresh the view after triggering scan
 						if view, ok := a.views["paths"]; ok {
