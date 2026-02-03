@@ -20,6 +20,6 @@ func (c *Client) TriggerScan(ctx context.Context, paths []string) error {
 	body := map[string]interface{}{
 		"paths": paths,
 	}
-	var result map[string]string
+	var result map[string]interface{}
 	return c.post(ctx, "/api/v1/paths/scan", body, &result)
 }
