@@ -30,6 +30,7 @@ type SettingsView struct {
 	currentSection int
 	apiClient      settingsAPIClient
 	tviewApp       *tview.Application
+	modalActive    bool
 
 	onStatusChange func(msg string, isError bool)
 
@@ -45,9 +46,9 @@ func NewSettingsView() *SettingsView {
 
 	// Section list (left sidebar)
 	sectionList := tview.NewList().
-		AddItem("Process", "Process monitoring patterns", '1', nil).
-		AddItem("Logs", "Log file monitoring", '2', nil).
-		AddItem("Paths", "Path scan configuration", '3', nil)
+		AddItem("Process", "Process monitoring patterns", 0, nil).
+		AddItem("Logs", "Log file monitoring", 0, nil).
+		AddItem("Paths", "Path scan configuration", 0, nil)
 	sectionList.SetBorder(true).
 		SetTitle(" Sections ").
 		SetTitleAlign(tview.AlignLeft).
@@ -77,7 +78,7 @@ func NewSettingsView() *SettingsView {
 	hintBar := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
-	hintBar.SetText("[teal]a[silver]=add  [teal]d[silver]=delete  [teal]s[silver]=save  [teal]Tab[silver]=switch pane  [teal]Esc[silver]=back")
+	hintBar.SetText("[teal]a[silver]=add  [teal]d[silver]=delete  [teal]s[silver]=save  [teal]Tab[silver]=switch pane  [teal]\u2191\u2193[silver]=navigate")
 	hintBar.SetBackgroundColor(theme.BgStatusBar)
 	v.hintBar = hintBar
 
@@ -93,6 +94,16 @@ func NewSettingsView() *SettingsView {
 
 	// Set up input capture for the entire settings view
 	v.flex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// When modal is active, only handle Esc to close it
+		// Pass ALL other events through to the form (Tab, Enter, letters, etc.)
+		if v.modalActive {
+			if event.Key() == tcell.KeyEsc {
+				v.dismissModal()
+				return nil
+			}
+			return event
+		}
+
 		// Tab: switch focus between sidebar and content
 		if event.Key() == tcell.KeyTab || event.Key() == tcell.KeyBacktab {
 			if v.sectionList.HasFocus() {
@@ -582,6 +593,7 @@ func (v *SettingsView) showModal(form *tview.Form, width, height int) {
 	if v.tviewApp == nil {
 		return
 	}
+	v.modalActive = true
 	// Create a modal-like overlay using a Flex centered in the content area
 	modal := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(nil, 0, 1, false).
@@ -599,6 +611,7 @@ func (v *SettingsView) showModal(form *tview.Form, width, height int) {
 }
 
 func (v *SettingsView) dismissModal() {
+	v.modalActive = false
 	v.showSection(v.currentSection)
 	v.focusContent()
 }
