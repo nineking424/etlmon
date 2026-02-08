@@ -21,6 +21,19 @@ func (s *Server) setupRoutes() http.Handler {
 		pathsHandler.SetScanner(s.scanner)
 	}
 
+	// Config handler
+	configHandler := handler.NewConfigHandler(s.configPath)
+	mux.HandleFunc("/api/v1/config", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			configHandler.Get(w, r)
+		case http.MethodPut:
+			configHandler.Update(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	// Register routes
 	mux.HandleFunc("/api/v1/fs", fsHandler.List)
 	mux.HandleFunc("/api/v1/paths", func(w http.ResponseWriter, r *http.Request) {

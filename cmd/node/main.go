@@ -108,7 +108,7 @@ func main() {
 	}
 
 	// Create and start API server
-	server := api.NewServer(cfg.Node.Listen, repo, cfg.Node.NodeName)
+	server := api.NewServer(cfg.Node.Listen, repo, cfg.Node.NodeName, *configPath)
 	server.SetPathScanner(pathScanner)
 
 	// Setup signal handling

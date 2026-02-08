@@ -10,11 +10,11 @@ import (
 
 // NodeConfig represents the complete node configuration
 type NodeConfig struct {
-	Node    NodeSettings       `yaml:"node"`
-	Refresh RefreshSettings    `yaml:"refresh"`
-	Paths   []PathConfig       `yaml:"paths"`
-	Process ProcessConfig      `yaml:"process"`
-	Logs    []LogMonitorConfig `yaml:"logs"`
+	Node    NodeSettings       `yaml:"node" json:"node"`
+	Refresh RefreshSettings    `yaml:"refresh" json:"refresh"`
+	Paths   []PathConfig       `yaml:"paths" json:"paths"`
+	Process ProcessConfig      `yaml:"process" json:"process"`
+	Logs    []LogMonitorConfig `yaml:"logs" json:"logs"`
 }
 
 // LoadNodeConfig loads and validates a node configuration from a YAML file
@@ -38,6 +38,18 @@ func LoadNodeConfig(path string) (*NodeConfig, error) {
 	}
 
 	return &cfg, nil
+}
+
+// SaveNodeConfig saves a node configuration to a YAML file
+func SaveNodeConfig(path string, cfg *NodeConfig) error {
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+	return nil
 }
 
 // applyNodeDefaults applies default values to unset fields

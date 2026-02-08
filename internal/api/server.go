@@ -19,6 +19,7 @@ type Server struct {
 	addr       string
 	repo       *repository.Repository
 	nodeName   string
+	configPath string
 	httpServer *http.Server
 	scanner    PathScanner
 	listener   net.Listener
@@ -26,11 +27,12 @@ type Server struct {
 }
 
 // NewServer creates a new API server
-func NewServer(addr string, repo *repository.Repository, nodeName string) *Server {
+func NewServer(addr string, repo *repository.Repository, nodeName string, configPath string) *Server {
 	return &Server{
-		addr:     addr,
-		repo:     repo,
-		nodeName: nodeName,
+		addr:       addr,
+		repo:       repo,
+		nodeName:   nodeName,
+		configPath: configPath,
 	}
 }
 

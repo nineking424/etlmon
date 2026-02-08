@@ -41,7 +41,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start server on random port (port 0 makes the OS assign a free port)
-	server := api.NewServer("127.0.0.1:0", repo, "test-node")
+	server := api.NewServer("127.0.0.1:0", repo, "test-node", "")
 
 	// Start server in background
 	go func() {

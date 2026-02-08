@@ -67,7 +67,7 @@ func TestServer_Start_ListensOnConfiguredAddress(t *testing.T) {
 	defer db.Close()
 
 	repo := repository.NewRepository(db)
-	server := NewServer("127.0.0.1:0", repo, "test-node") // Port 0 = random available port
+	server := NewServer("127.0.0.1:0", repo, "test-node", "") // Port 0 = random available port
 
 	// Start server in background
 	errCh := make(chan error, 1)
@@ -114,7 +114,7 @@ func TestServer_Shutdown_GracefullyStops(t *testing.T) {
 	defer db.Close()
 
 	repo := repository.NewRepository(db)
-	server := NewServer("127.0.0.1:0", repo, "test-node")
+	server := NewServer("127.0.0.1:0", repo, "test-node", "")
 
 	go server.Start()
 	time.Sleep(100 * time.Millisecond)
@@ -132,7 +132,7 @@ func TestServer_Routes_FSEndpoint(t *testing.T) {
 	defer db.Close()
 
 	repo := repository.NewRepository(db)
-	server := NewServer("127.0.0.1:0", repo, "test-node")
+	server := NewServer("127.0.0.1:0", repo, "test-node", "")
 
 	handler := server.setupRoutes()
 
@@ -147,7 +147,7 @@ func TestServer_Routes_PathsEndpoint(t *testing.T) {
 	defer db.Close()
 
 	repo := repository.NewRepository(db)
-	server := NewServer("127.0.0.1:0", repo, "test-node")
+	server := NewServer("127.0.0.1:0", repo, "test-node", "")
 
 	handler := server.setupRoutes()
 
@@ -161,7 +161,7 @@ func TestServer_Routes_HealthEndpoint(t *testing.T) {
 	defer db.Close()
 
 	repo := repository.NewRepository(db)
-	server := NewServer("127.0.0.1:0", repo, "test-node")
+	server := NewServer("127.0.0.1:0", repo, "test-node", "")
 
 	handler := server.setupRoutes()
 

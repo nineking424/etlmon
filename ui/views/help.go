@@ -28,6 +28,7 @@ func NewHelpView() *HelpView {
   [aqua]2[-]       Switch to Paths view
   [aqua]3[-]       Switch to Process view
   [aqua]4[-]       Switch to Logs view
+  [aqua]5[-]       Switch to Settings view
   [aqua]?/h[-]     Show this help
 
 [teal::b]Actions:[-::-]
