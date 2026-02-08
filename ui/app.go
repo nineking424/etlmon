@@ -73,13 +73,21 @@ func (a *App) SwitchView(name string) {
 		// Use layout for content instead of setting view as root
 		a.layout.SetContent(view.Primitive())
 		a.layout.SetActiveView(name)
+		a.tview.SetFocus(view.Primitive())
 		view.Focus()
 
 		// Refresh the view
 		go func() {
 			ctx := context.Background()
-			view.Refresh(ctx, a.client)
-			a.tview.Draw()
+			if err := view.Refresh(ctx, a.client); err != nil {
+				a.tview.QueueUpdateDraw(func() {
+					a.layout.SetMessage(err.Error(), true)
+				})
+			} else {
+				a.tview.QueueUpdateDraw(func() {
+					a.layout.RefreshTimestamp()
+				})
+			}
 		}()
 	}
 }
@@ -146,16 +154,18 @@ func (a *App) Run() error {
 			// Refresh current view
 			if view, ok := a.views[a.current]; ok {
 				a.layout.SetMessage("Refreshing...", false)
-				a.tview.Draw()
 				go func() {
 					ctx := context.Background()
 					if err := view.Refresh(ctx, a.client); err != nil {
-						a.layout.SetMessage(err.Error(), true)
+						a.tview.QueueUpdateDraw(func() {
+							a.layout.SetMessage(err.Error(), true)
+						})
 					} else {
-						a.layout.SetMessage("Refreshed", false)
+						a.tview.QueueUpdateDraw(func() {
+							a.layout.SetMessage("Refreshed", false)
+							a.layout.RefreshTimestamp()
+						})
 					}
-					a.layout.RefreshTimestamp()
-					a.tview.Draw()
 				}()
 			}
 			return nil
@@ -170,15 +180,19 @@ func (a *App) Run() error {
 					go func() {
 						ctx := context.Background()
 						if err := pathsView.TriggerScan(ctx, a.client); err != nil {
-							a.layout.SetMessage(err.Error(), true)
+							a.tview.QueueUpdateDraw(func() {
+								a.layout.SetMessage(err.Error(), true)
+							})
 						} else {
-							a.layout.SetMessage("Scan complete", false)
+							// Refresh the view after triggering scan
+							if view, ok := a.views["paths"]; ok {
+								view.Refresh(ctx, a.client)
+							}
+							a.tview.QueueUpdateDraw(func() {
+								a.layout.SetMessage("Scan complete", false)
+								a.layout.RefreshTimestamp()
+							})
 						}
-						// Refresh the view after triggering scan
-						if view, ok := a.views["paths"]; ok {
-							view.Refresh(ctx, a.client)
-						}
-						a.tview.Draw()
 					}()
 				}
 			}
