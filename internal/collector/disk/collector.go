@@ -1,9 +1,13 @@
 package disk
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -132,33 +136,109 @@ func (c *DiskCollector) collectLoop(ctx context.Context) {
 // getMountPoints returns a list of non-pseudo filesystem mount points
 func (c *DiskCollector) getMountPoints() ([]string, error) {
 	if runtime.GOOS == "darwin" {
-		// On macOS, just return root for now
-		// In production, could parse 'mount' command output
+		return c.getMountPointsDarwin()
+	}
+	return c.getMountPointsLinux()
+}
+
+// getMountPointsDarwin parses mount command output on macOS
+func (c *DiskCollector) getMountPointsDarwin() ([]string, error) {
+	out, err := exec.Command("mount").Output()
+	if err != nil {
 		return []string{"/"}, nil
 	}
 
-	// On Linux, parse /proc/mounts
-	return c.getMountPointsLinux()
+	var mounts []string
+	seenDevices := make(map[string]bool)
+
+	for _, line := range strings.Split(string(out), "\n") {
+		// Format: /dev/disk3s1s1 on / (apfs, sealed, local, read-only, journaled)
+		parts := strings.SplitN(line, " on ", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		device := strings.TrimSpace(parts[0])
+
+		// Only real disk devices
+		if !strings.HasPrefix(device, "/dev/") {
+			continue
+		}
+
+		// Deduplicate by device
+		if seenDevices[device] {
+			continue
+		}
+
+		// Extract mount point (before parenthesized options)
+		rest := parts[1]
+		parenIdx := strings.LastIndex(rest, " (")
+		if parenIdx < 0 {
+			continue
+		}
+		mountPoint := strings.TrimSpace(rest[:parenIdx])
+
+		// Verify the mount point is accessible
+		var stat syscall.Statfs_t
+		if err := syscall.Statfs(mountPoint, &stat); err != nil {
+			continue
+		}
+
+		seenDevices[device] = true
+		mounts = append(mounts, mountPoint)
+	}
+
+	if len(mounts) == 0 {
+		return []string{"/"}, nil
+	}
+	return mounts, nil
 }
 
 // getMountPointsLinux parses /proc/mounts on Linux systems
 func (c *DiskCollector) getMountPointsLinux() ([]string, error) {
-	// Read /proc/mounts
-	// For simplicity, return common mount points for now
-	// In production, would parse the actual file
+	f, err := os.Open("/proc/mounts")
+	if err != nil {
+		return []string{"/"}, nil
+	}
+	defer f.Close()
 
-	// Default to root
-	mounts := []string{"/"}
+	var mounts []string
+	seenDevices := make(map[string]bool)
 
-	// Try to add common mount points if they exist
-	commonMounts := []string{"/home", "/data", "/var", "/tmp"}
-	for _, mount := range commonMounts {
-		var stat syscall.Statfs_t
-		if err := syscall.Statfs(mount, &stat); err == nil {
-			mounts = append(mounts, mount)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Format: device mountpoint fstype options dump pass
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
 		}
+
+		device := fields[0]
+		mountPoint := fields[1]
+		fsType := fields[2]
+
+		// Skip pseudo filesystems
+		if c.excludes[fsType] {
+			continue
+		}
+
+		// Only real device-backed mounts
+		if !strings.HasPrefix(device, "/dev/") {
+			continue
+		}
+
+		// Deduplicate by device (avoids showing bind mounts twice)
+		if seenDevices[device] {
+			continue
+		}
+		seenDevices[device] = true
+
+		mounts = append(mounts, mountPoint)
 	}
 
+	if len(mounts) == 0 {
+		return []string{"/"}, nil
+	}
 	return mounts, nil
 }
 
