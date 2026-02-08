@@ -48,6 +48,13 @@ func (a *App) AddView(v View) {
 		})
 	}
 
+	// Setup app reference for settings view
+	if v.Name() == "settings" {
+		if settingsView, ok := v.(interface{ SetApp(*tview.Application) }); ok {
+			settingsView.SetApp(a.tview)
+		}
+	}
+
 	// Setup close handler for help view
 	if v.Name() == "help" {
 		if helpView, ok := v.(interface{ SetCloseHandler(func()) }); ok {
@@ -204,8 +211,10 @@ func (a *App) Run() error {
 						}
 					}()
 				}
+				return nil
 			}
-			return nil
+			// Let other views (e.g., settings) handle 's' key themselves
+			return event
 		case 'q':
 			// In help view, let the view handle it to return to previous view
 			if a.current == "help" {
