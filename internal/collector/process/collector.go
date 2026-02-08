@@ -18,6 +18,7 @@ import (
 type ProcessRepository interface {
 	SaveProcessInfo(ctx context.Context, info *models.ProcessInfo) error
 	GetLatestProcessInfo(ctx context.Context) ([]*models.ProcessInfo, error)
+	ClearAll(ctx context.Context) error
 }
 
 // Config holds process monitoring configuration
@@ -31,9 +32,23 @@ type Collector struct {
 	repo     ProcessRepository
 	interval time.Duration
 	config   Config
+	compiled []*regexp.Regexp // pre-compiled pattern regexes
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
 	mu       sync.Mutex
+}
+
+// compilePatterns converts glob patterns to compiled regexes
+func compilePatterns(patterns []string) []*regexp.Regexp {
+	var compiled []*regexp.Regexp
+	for _, pattern := range patterns {
+		re, err := globToRegex(pattern)
+		if err != nil {
+			continue // skip invalid patterns
+		}
+		compiled = append(compiled, re)
+	}
+	return compiled
 }
 
 // NewCollector creates a new process collector
@@ -45,6 +60,7 @@ func NewCollector(repo ProcessRepository, interval time.Duration, cfg Config) *C
 		repo:     repo,
 		interval: interval,
 		config:   cfg,
+		compiled: compilePatterns(cfg.Patterns),
 	}
 }
 
@@ -102,13 +118,18 @@ func (c *Collector) CollectOnce(ctx context.Context) error {
 	}
 
 	// Filter by patterns if configured
-	if len(c.config.Patterns) > 0 {
+	if len(c.compiled) > 0 {
 		procs = c.filterByPatterns(procs)
 	}
 
 	// Limit to TopN
 	if len(procs) > c.config.TopN {
 		procs = procs[:c.config.TopN]
+	}
+
+	// Clear old entries before saving new ones
+	if err := c.repo.ClearAll(ctx); err != nil {
+		return fmt.Errorf("failed to clear old process info: %w", err)
 	}
 
 	for _, proc := range procs {
@@ -213,13 +234,50 @@ func parseState(state string) string {
 	}
 }
 
-// filterByPatterns filters processes by configured name patterns
+// globToRegex converts a glob pattern to a regular expression
+// Supports * (match any characters) and ? (match single character)
+// If pattern contains no glob characters, performs case-insensitive substring match
+func globToRegex(pattern string) (*regexp.Regexp, error) {
+	hasGlob := strings.ContainsAny(pattern, "*?")
+
+	if !hasGlob {
+		// No glob characters - do case-insensitive substring match
+		escaped := regexp.QuoteMeta(pattern)
+		return regexp.Compile("(?i)" + escaped)
+	}
+
+	// Convert glob to regex
+	var result strings.Builder
+	result.WriteString("^")
+
+	for i := 0; i < len(pattern); i++ {
+		ch := pattern[i]
+		switch ch {
+		case '*':
+			result.WriteString(".*")
+		case '?':
+			result.WriteString(".")
+		default:
+			// Escape regex metacharacters
+			if strings.ContainsRune(`\.+()[]{}^$|`, rune(ch)) {
+				result.WriteRune('\\')
+			}
+			result.WriteRune(rune(ch))
+		}
+	}
+
+	result.WriteString("$")
+	return regexp.Compile(result.String())
+}
+
+// filterByPatterns filters processes by pre-compiled glob patterns
+// Supports glob-style patterns: *, ?
+// Examples: java, *nifi*, java*, *daemon
 func (c *Collector) filterByPatterns(procs []*models.ProcessInfo) []*models.ProcessInfo {
 	var filtered []*models.ProcessInfo
 	for _, proc := range procs {
-		for _, pattern := range c.config.Patterns {
-			matched, err := regexp.MatchString(pattern, proc.Name)
-			if err == nil && matched {
+		for _, re := range c.compiled {
+			if re.MatchString(proc.Name) {
 				filtered = append(filtered, proc)
 				break
 			}
