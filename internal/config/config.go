@@ -16,6 +16,7 @@ type RefreshSettings struct {
 	Disk            time.Duration `yaml:"disk"`
 	DefaultPathScan time.Duration `yaml:"default_path_scan"`
 	Process         time.Duration `yaml:"process"`
+	Log             time.Duration `yaml:"log"`
 }
 
 // PathConfig defines a monitored path with its scan settings
@@ -25,6 +26,19 @@ type PathConfig struct {
 	MaxDepth     int           `yaml:"max_depth"`
 	Exclude      []string      `yaml:"exclude"`
 	Timeout      time.Duration `yaml:"timeout"`
+}
+
+// ProcessConfig defines process monitoring settings
+type ProcessConfig struct {
+	Patterns []string `yaml:"patterns"`
+	TopN     int      `yaml:"top_n"`
+}
+
+// LogMonitorConfig defines a single log file to monitor
+type LogMonitorConfig struct {
+	Name     string `yaml:"name"`
+	Path     string `yaml:"path"`
+	MaxLines int    `yaml:"max_lines"`
 }
 
 // NodeEntry represents a node in the UI configuration

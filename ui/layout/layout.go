@@ -27,7 +27,7 @@ func NewLayout() *Layout {
 
 	// Vertical layout: Header | NavBar | Content | StatusBar
 	l.root.SetDirection(tview.FlexRow).
-		AddItem(l.header.Primitive(), 5, 0, false).   // Header: 5 lines for logo
+		AddItem(l.header.Primitive(), 3, 0, false).   // Header: 3 lines bordered box
 		AddItem(l.navbar.Primitive(), 1, 0, false).   // NavBar: 1 line
 		AddItem(l.content, 0, 1, true).               // Content: flexible
 		AddItem(l.statusbar.Primitive(), 1, 0, false) // StatusBar: 1 line

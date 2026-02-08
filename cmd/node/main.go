@@ -11,7 +11,9 @@ import (
 
 	"github.com/etlmon/etlmon/internal/api"
 	"github.com/etlmon/etlmon/internal/collector/disk"
+	logcollector "github.com/etlmon/etlmon/internal/collector/log"
 	"github.com/etlmon/etlmon/internal/collector/path"
+	"github.com/etlmon/etlmon/internal/collector/process"
 	"github.com/etlmon/etlmon/internal/config"
 	"github.com/etlmon/etlmon/internal/db"
 	"github.com/etlmon/etlmon/internal/db/repository"
@@ -74,6 +76,37 @@ func main() {
 	pathScanner.Start(ctx)
 	slog.Info("path scanner started", "paths", len(cfg.Paths))
 
+	// Start process collector
+	procConfig := process.Config{
+		Patterns: cfg.Process.Patterns,
+		TopN:     cfg.Process.TopN,
+	}
+	processCollector := process.NewCollector(repo.Process, cfg.Refresh.Process, procConfig)
+	if err := processCollector.Start(ctx); err != nil {
+		slog.Error("failed to start process collector", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("process collector started", "interval", cfg.Refresh.Process)
+
+	// Start log tailer (if logs configured)
+	var logTailer *logcollector.LogTailer
+	if len(cfg.Logs) > 0 {
+		tailerConfigs := make([]logcollector.TailerConfig, len(cfg.Logs))
+		for i, l := range cfg.Logs {
+			tailerConfigs[i] = logcollector.TailerConfig{
+				Name:     l.Name,
+				Path:     l.Path,
+				MaxLines: l.MaxLines,
+			}
+		}
+		logTailer = logcollector.NewLogTailer(repo.Log, tailerConfigs, cfg.Refresh.Log)
+		if err := logTailer.Start(ctx); err != nil {
+			slog.Error("failed to start log tailer", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("log tailer started", "logs", len(cfg.Logs), "interval", cfg.Refresh.Log)
+	}
+
 	// Create and start API server
 	server := api.NewServer(cfg.Node.Listen, repo, cfg.Node.NodeName)
 	server.SetPathScanner(pathScanner)
@@ -101,6 +134,10 @@ func main() {
 	// Stop collectors explicitly
 	diskCollector.Stop()
 	pathScanner.Stop()
+	processCollector.Stop()
+	if logTailer != nil {
+		logTailer.Stop()
+	}
 
 	// Shutdown API server
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)

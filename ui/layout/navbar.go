@@ -35,6 +35,8 @@ func NewNavBar() *NavBar {
 			{Key: '0', Name: "Overview", ViewName: "overview"},
 			{Key: '1', Name: "FS", ViewName: "fs"},
 			{Key: '2', Name: "Paths", ViewName: "paths"},
+			{Key: '3', Name: "Process", ViewName: "process"},
+			{Key: '4', Name: "Logs", ViewName: "logs"},
 		},
 	}
 }

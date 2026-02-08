@@ -4,15 +4,19 @@ import "database/sql"
 
 // Repository aggregates all sub-repositories
 type Repository struct {
-	FS    *FSRepository
-	Paths *PathsRepository
+	FS      *FSRepository
+	Paths   *PathsRepository
+	Process *ProcessRepository
+	Log     *LogRepository
 }
 
 // NewRepository creates a new Repository with all sub-repositories initialized
 func NewRepository(db *sql.DB) *Repository {
 	return &Repository{
-		FS:    NewFSRepository(db),
-		Paths: NewPathsRepository(db),
+		FS:      NewFSRepository(db),
+		Paths:   NewPathsRepository(db),
+		Process: NewProcessRepository(db),
+		Log:     NewLogRepository(db),
 	}
 }
 
@@ -24,6 +28,12 @@ func (r *Repository) Close() error {
 		errs = append(errs, err)
 	}
 	if err := r.Paths.Close(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := r.Process.Close(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := r.Log.Close(); err != nil {
 		errs = append(errs, err)
 	}
 

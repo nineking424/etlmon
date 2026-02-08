@@ -147,6 +147,12 @@ func (a *App) Run() error {
 		case '2':
 			a.SwitchView("paths")
 			return nil
+		case '3':
+			a.SwitchView("process")
+			return nil
+		case '4':
+			a.SwitchView("logs")
+			return nil
 		case '?', 'h':
 			a.SwitchView("help")
 			return nil

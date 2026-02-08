@@ -14,19 +14,37 @@ import (
 // OverviewView displays a btop-style combined dashboard
 type OverviewView struct {
 	flex    *tview.Flex
-	fsBox   *tview.TextView
+	fsBox   *tview.Table
 	pathBox *tview.Table
 }
 
 // NewOverviewView creates a new overview dashboard
 func NewOverviewView() *OverviewView {
-	fsBox := tview.NewTextView().
-		SetDynamicColors(true).
-		SetWordWrap(false)
+	fsBox := tview.NewTable().
+		SetBorders(false).
+		SetSelectable(false, false).
+		SetFixed(1, 0)
 	fsBox.SetBorder(true).
 		SetTitle(" Filesystem Usage ").
 		SetTitleAlign(tview.AlignLeft).
 		SetBorderColor(theme.FgLabel)
+
+	// Set FS table headers
+	fsHeaders := []string{"Mount", "Usage", "Used", "Total"}
+	for i, header := range fsHeaders {
+		cell := tview.NewTableCell(header).
+			SetTextColor(theme.TableHeader).
+			SetAttributes(theme.TableHeaderAttr).
+			SetSelectable(false)
+		if i == 0 {
+			cell.SetAlign(tview.AlignLeft)
+		} else if i == 1 {
+			cell.SetAlign(tview.AlignLeft).SetExpansion(1)
+		} else {
+			cell.SetAlign(tview.AlignRight)
+		}
+		fsBox.SetCell(0, i, cell)
+	}
 
 	pathBox := tview.NewTable().
 		SetBorders(false).
@@ -104,36 +122,47 @@ func (v *OverviewView) refresh(ctx context.Context, c APIClient) error {
 	return nil
 }
 
-// renderFS renders filesystem usage gauges
+// renderFS renders filesystem usage as a table with aligned columns
 func (v *OverviewView) renderFS(usage []*models.FilesystemUsage, err error) {
-	v.fsBox.Clear()
+	// Clear existing data rows (keep header)
+	for i := v.fsBox.GetRowCount() - 1; i > 0; i-- {
+		v.fsBox.RemoveRow(i)
+	}
 
 	if err != nil {
-		fmt.Fprintf(v.fsBox, " [red]Error: %s[-]\n", err.Error())
+		v.fsBox.SetCell(1, 0, tview.NewTableCell(fmt.Sprintf("Error: %s", err.Error())).
+			SetTextColor(theme.StatusCritical))
 		return
 	}
 
 	if len(usage) == 0 {
-		fmt.Fprintf(v.fsBox, " [darkgray]No filesystem data[-]\n")
+		v.fsBox.SetCell(1, 0, tview.NewTableCell("No filesystem data").
+			SetTextColor(theme.FgMuted))
 		return
 	}
 
-	for _, fs := range usage {
-		color := "green"
-		if fs.UsedPercent > 90 {
-			color = "red"
-		} else if fs.UsedPercent > 75 {
-			color = "yellow"
-		}
+	for i, fs := range usage {
+		row := i + 1
+		color := theme.GaugeColor(fs.UsedPercent)
 
-		gauge := ui.FormatGauge(fs.UsedPercent, 30)
-		fmt.Fprintf(v.fsBox, " [white]%-20s[-] [%s]%s[-]  %s / %s\n",
-			fs.MountPoint,
-			color,
-			gauge,
-			ui.FormatBytes(fs.UsedBytes),
-			ui.FormatBytes(fs.TotalBytes),
-		)
+		// Mount point
+		v.fsBox.SetCell(row, 0, tview.NewTableCell(fs.MountPoint).
+			SetTextColor(theme.FgPrimary))
+
+		// Gauge bar
+		v.fsBox.SetCell(row, 1, tview.NewTableCell(ui.FormatGauge(fs.UsedPercent, 30)).
+			SetTextColor(color).
+			SetExpansion(1))
+
+		// Used bytes
+		v.fsBox.SetCell(row, 2, tview.NewTableCell(ui.FormatBytes(fs.UsedBytes)).
+			SetTextColor(theme.FgSecondary).
+			SetAlign(tview.AlignRight))
+
+		// Total bytes
+		v.fsBox.SetCell(row, 3, tview.NewTableCell(ui.FormatBytes(fs.TotalBytes)).
+			SetTextColor(theme.FgSecondary).
+			SetAlign(tview.AlignRight))
 	}
 }
 

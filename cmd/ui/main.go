@@ -48,11 +48,15 @@ func main() {
 	overviewView := views.NewOverviewView()
 	fsView := views.NewFSView()
 	pathsView := views.NewPathsView()
+	processView := views.NewProcessView()
+	logView := views.NewLogView()
 	helpView := views.NewHelpView()
 
 	app.AddView(overviewView)
 	app.AddView(fsView)
 	app.AddView(pathsView)
+	app.AddView(processView)
+	app.AddView(logView)
 	app.AddView(helpView)
 
 	// Setup context for graceful shutdown

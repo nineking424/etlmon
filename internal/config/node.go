@@ -10,9 +10,11 @@ import (
 
 // NodeConfig represents the complete node configuration
 type NodeConfig struct {
-	Node    NodeSettings    `yaml:"node"`
-	Refresh RefreshSettings `yaml:"refresh"`
-	Paths   []PathConfig    `yaml:"paths"`
+	Node    NodeSettings       `yaml:"node"`
+	Refresh RefreshSettings    `yaml:"refresh"`
+	Paths   []PathConfig       `yaml:"paths"`
+	Process ProcessConfig      `yaml:"process"`
+	Logs    []LogMonitorConfig `yaml:"logs"`
 }
 
 // LoadNodeConfig loads and validates a node configuration from a YAML file
@@ -58,6 +60,9 @@ func applyNodeDefaults(cfg *NodeConfig) {
 	if cfg.Refresh.Process == 0 {
 		cfg.Refresh.Process = 10 * time.Second
 	}
+	if cfg.Refresh.Log == 0 {
+		cfg.Refresh.Log = 2 * time.Second
+	}
 
 	// Path defaults
 	for i := range cfg.Paths {
@@ -70,6 +75,18 @@ func applyNodeDefaults(cfg *NodeConfig) {
 		}
 		if path.Timeout == 0 {
 			path.Timeout = 30 * time.Second
+		}
+	}
+
+	// Process defaults
+	if cfg.Process.TopN == 0 {
+		cfg.Process.TopN = 50
+	}
+
+	// Log defaults
+	for i := range cfg.Logs {
+		if cfg.Logs[i].MaxLines == 0 {
+			cfg.Logs[i].MaxLines = 1000
 		}
 	}
 }

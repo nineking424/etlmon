@@ -13,6 +13,8 @@ func (s *Server) setupRoutes() http.Handler {
 	fsHandler := handler.NewFSHandler(s.repo.FS)
 	pathsHandler := handler.NewPathsHandler(s.repo.Paths)
 	healthHandler := handler.NewHealthHandler(s.nodeName)
+	processHandler := handler.NewProcessHandler(s.repo.Process)
+	logHandler := handler.NewLogHandler(s.repo.Log)
 
 	// Set scanner if available
 	if s.scanner != nil {
@@ -36,6 +38,8 @@ func (s *Server) setupRoutes() http.Handler {
 		}
 	})
 	mux.HandleFunc("/api/v1/health", healthHandler.Health)
+	mux.HandleFunc("/api/v1/processes", processHandler.List)
+	mux.HandleFunc("/api/v1/logs", logHandler.List)
 
 	return mux
 }

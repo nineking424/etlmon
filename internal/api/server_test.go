@@ -36,6 +36,24 @@ func setupServerTestDB(t *testing.T) *sql.DB {
 			error_message TEXT,
 			collected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
+		CREATE TABLE process_stats (
+			pid INTEGER PRIMARY KEY,
+			name TEXT NOT NULL,
+			user TEXT NOT NULL,
+			cpu_percent REAL NOT NULL DEFAULT 0,
+			mem_rss INTEGER NOT NULL DEFAULT 0,
+			status TEXT NOT NULL DEFAULT 'unknown',
+			elapsed TEXT NOT NULL DEFAULT '',
+			collected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+		CREATE TABLE log_lines (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			log_name TEXT NOT NULL,
+			log_path TEXT NOT NULL,
+			line TEXT NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+		CREATE INDEX idx_log_lines_name ON log_lines(log_name, id DESC);
 	`
 	if _, err := db.Exec(schema); err != nil {
 		t.Fatalf("failed to create schema: %v", err)

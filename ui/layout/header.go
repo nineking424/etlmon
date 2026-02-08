@@ -1,14 +1,15 @@
 package layout
 
 import (
+	"fmt"
+
 	"github.com/etlmon/etlmon/ui/theme"
 	"github.com/rivo/tview"
 )
 
-// Header displays logo, context info, and resource info
+// Header displays node context and resource info in a bordered box
 type Header struct {
 	flex     *tview.Flex
-	logo     *tview.TextView
 	context  *tview.TextView
 	resource *tview.TextView
 }
@@ -17,39 +18,39 @@ type Header struct {
 func NewHeader() *Header {
 	h := &Header{
 		flex:     tview.NewFlex(),
-		logo:     NewLogo(),
 		context:  tview.NewTextView().SetDynamicColors(true),
 		resource: tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignRight),
 	}
 
-	// Horizontal layout: Logo | Context | Resource (all proportional for responsiveness)
-	// Logo gets 2 parts, Context gets 3 parts (most flexible), Resource gets 1 part
+	// Horizontal layout: Context (left) | Resource (right)
 	h.flex.SetDirection(tview.FlexColumn).
-		AddItem(h.logo, 0, 2, false).
-		AddItem(h.context, 0, 3, false).
+		AddItem(h.context, 0, 1, false).
 		AddItem(h.resource, 0, 1, false)
 
-	// Apply theme colors
-	h.flex.SetBackgroundColor(theme.BgHeader)
-	h.logo.SetBackgroundColor(theme.BgHeader)
-	h.context.SetBackgroundColor(theme.BgHeader)
-	h.resource.SetBackgroundColor(theme.BgHeader)
+	// Bordered box with ETLMON title - matches content box style
+	h.flex.SetBorder(true).
+		SetTitle(" ETLMON ").
+		SetTitleAlign(tview.AlignLeft).
+		SetTitleColor(theme.FgAccent).
+		SetBorderColor(theme.FgLabel)
 
 	return h
 }
 
 // SetContext updates the context info (node name, status)
 func (h *Header) SetContext(nodeName string, status string) {
-	color := "[green]"
+	statusColor := "[green]"
+	statusIcon := "[green]\u25cf[-]"
 	if status != "connected" && status != "ok" && status != "OK" {
-		color = "[red]"
+		statusColor = "[red]"
+		statusIcon = "[red]\u25cf[-]"
 	}
-	h.context.SetText("  [teal]Node:[-] [white]" + nodeName + "[-]  " + color + status + "[-]")
+	h.context.SetText(fmt.Sprintf(" [teal]Node:[-] [white]%s[-]  %s %s%s[-]", nodeName, statusIcon, statusColor, status))
 }
 
 // SetResource updates the resource info
 func (h *Header) SetResource(info string) {
-	h.resource.SetText(info + "  ")
+	h.resource.SetText(fmt.Sprintf("[teal]%s[-] ", info))
 }
 
 // Primitive returns the header's tview primitive
