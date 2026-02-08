@@ -1,7 +1,7 @@
 package layout
 
 import (
-	"github.com/gdamore/tcell/v2"
+	"github.com/etlmon/etlmon/ui/theme"
 	"github.com/rivo/tview"
 )
 
@@ -16,7 +16,8 @@ const LogoArt = ` _____ _____ _     __  __  ___  _   _
 func NewLogo() *tview.TextView {
 	tv := tview.NewTextView().
 		SetText(LogoArt).
-		SetTextColor(tcell.ColorAqua).
+		SetTextColor(theme.FgAccent).
 		SetDynamicColors(false)
+	tv.SetBackgroundColor(theme.BgHeader)
 	return tv
 }

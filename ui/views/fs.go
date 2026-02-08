@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/etlmon/etlmon/pkg/models"
+	"github.com/etlmon/etlmon/ui"
 	"github.com/etlmon/etlmon/ui/client"
+	"github.com/etlmon/etlmon/ui/theme"
 	"github.com/rivo/tview"
 )
 
@@ -20,7 +21,6 @@ type APIClient interface {
 // FSView displays filesystem usage statistics
 type FSView struct {
 	table          *tview.Table
-	tableMode      bool
 	onStatusChange func(msg string, isError bool)
 }
 
@@ -32,37 +32,22 @@ func NewFSView() *FSView {
 		SetFixed(1, 0)
 
 	// Set headers
-	headers := []string{"Mount", "Total", "Used", "Avail", "Use%"}
+	headers := []string{"Mount", "Total", "Used", "Avail", "Use%", "Usage"}
 	for i, header := range headers {
 		cell := tview.NewTableCell(header).
-			SetTextColor(tcell.ColorYellow).
+			SetTextColor(theme.TableHeader).
+			SetAttributes(theme.TableHeaderAttr).
 			SetAlign(tview.AlignLeft).
 			SetSelectable(false)
+		if i == 5 {
+			cell.SetExpansion(1)
+		}
 		table.SetCell(0, i, cell)
 	}
 
 	v := &FSView{
-		table:     table,
-		tableMode: false,
+		table: table,
 	}
-
-	// Set up input capture for table toggle
-	v.table.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Rune() {
-		case 'T':
-			v.tableMode = !v.tableMode
-			v.table.SetBorders(v.tableMode)
-			if v.onStatusChange != nil {
-				if v.tableMode {
-					v.onStatusChange("Borders: ON", false)
-				} else {
-					v.onStatusChange("Borders: OFF", false)
-				}
-			}
-			return nil
-		}
-		return event
-	})
 
 	return v
 }
@@ -100,33 +85,33 @@ func (v *FSView) refresh(ctx context.Context, client APIClient) error {
 
 		// Mount point
 		v.table.SetCell(row, 0, tview.NewTableCell(fs.MountPoint).
-			SetTextColor(tcell.ColorWhite))
+			SetTextColor(theme.FgPrimary))
 
 		// Total
-		v.table.SetCell(row, 1, tview.NewTableCell(formatBytes(fs.TotalBytes)).
-			SetTextColor(tcell.ColorWhite).
+		v.table.SetCell(row, 1, tview.NewTableCell(ui.FormatBytes(fs.TotalBytes)).
+			SetTextColor(theme.FgPrimary).
 			SetAlign(tview.AlignRight))
 
 		// Used
-		v.table.SetCell(row, 2, tview.NewTableCell(formatBytes(fs.UsedBytes)).
-			SetTextColor(tcell.ColorWhite).
+		v.table.SetCell(row, 2, tview.NewTableCell(ui.FormatBytes(fs.UsedBytes)).
+			SetTextColor(theme.FgPrimary).
 			SetAlign(tview.AlignRight))
 
 		// Available
-		v.table.SetCell(row, 3, tview.NewTableCell(formatBytes(fs.AvailBytes)).
-			SetTextColor(tcell.ColorWhite).
+		v.table.SetCell(row, 3, tview.NewTableCell(ui.FormatBytes(fs.AvailBytes)).
+			SetTextColor(theme.FgPrimary).
 			SetAlign(tview.AlignRight))
 
 		// Use% with color coding
-		color := tcell.ColorGreen
-		if fs.UsedPercent > 90 {
-			color = tcell.ColorRed
-		} else if fs.UsedPercent > 75 {
-			color = tcell.ColorYellow
-		}
+		color := theme.GaugeColor(fs.UsedPercent)
 		v.table.SetCell(row, 4, tview.NewTableCell(fmt.Sprintf("%.1f%%", fs.UsedPercent)).
 			SetTextColor(color).
 			SetAlign(tview.AlignRight))
+
+		// Usage gauge
+		v.table.SetCell(row, 5, tview.NewTableCell(ui.FormatGauge(fs.UsedPercent, 25)).
+			SetTextColor(theme.GaugeColor(fs.UsedPercent)).
+			SetExpansion(1))
 	}
 
 	return nil
@@ -140,21 +125,4 @@ func (v *FSView) Focus() {
 // SetStatusCallback sets the callback for status messages
 func (v *FSView) SetStatusCallback(cb func(msg string, isError bool)) {
 	v.onStatusChange = cb
-}
-
-// formatBytes formats bytes into human-readable string
-func formatBytes(bytes uint64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-
-	div, exp := uint64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-
-	units := []string{"KB", "MB", "GB", "TB", "PB"}
-	return fmt.Sprintf("%.2f %s", float64(bytes)/float64(div), units[exp])
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/etlmon/etlmon/ui/theme"
 	"github.com/rivo/tview"
 )
 
@@ -27,11 +27,12 @@ func NewNavBar() *NavBar {
 	tv := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft)
-	tv.SetBackgroundColor(tcell.ColorDarkBlue)
+	tv.SetBackgroundColor(theme.BgNavBar)
 
 	return &NavBar{
 		textView: tv,
 		items: []NavItem{
+			{Key: '0', Name: "Overview", ViewName: "overview"},
 			{Key: '1', Name: "FS", ViewName: "fs"},
 			{Key: '2', Name: "Paths", ViewName: "paths"},
 		},
@@ -50,16 +51,13 @@ func (n *NavBar) render() {
 
 	for _, item := range n.items {
 		if item.ViewName == n.active {
-			// Active item - highlighted
-			parts = append(parts, fmt.Sprintf("[black:aqua] <%c> %s [-:-]", item.Key, item.Name))
+			parts = append(parts, fmt.Sprintf("[black:aqua:b] <%c> %s [-:-:-]", item.Key, item.Name))
 		} else {
-			// Inactive item
-			parts = append(parts, fmt.Sprintf("[white:-] <%c> %s [-:-]", item.Key, item.Name))
+			parts = append(parts, fmt.Sprintf("[silver:-:-] <%c> %s [-:-:-]", item.Key, item.Name))
 		}
 	}
 
-	// Add separator and shortcuts
-	shortcuts := "[gray]│[-]  [yellow]?[white]=help  [yellow]r[white]=refresh  [yellow]s[white]=scan  [yellow]T[white]=border  [yellow]q[white]=quit"
+	shortcuts := "[darkgray]│[-]  [teal]?[silver]=help  [teal]r[silver]=refresh  [teal]s[silver]=scan  [teal]q[silver]=quit"
 
 	text := " " + strings.Join(parts, "  ") + "  " + shortcuts + " "
 	n.textView.SetText(text)

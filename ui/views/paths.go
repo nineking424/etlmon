@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/etlmon/etlmon/ui"
 	"github.com/etlmon/etlmon/ui/client"
+	"github.com/etlmon/etlmon/ui/theme"
 	"github.com/rivo/tview"
 )
 
 // PathsView displays path statistics
 type PathsView struct {
 	table          *tview.Table
-	tableMode      bool // true = with borders, false = compact
 	onStatusChange func(msg string, isError bool)
 }
 
@@ -27,35 +27,16 @@ func NewPathsView() *PathsView {
 	headers := []string{"Path", "Files", "Dirs", "Duration", "Status"}
 	for i, header := range headers {
 		cell := tview.NewTableCell(header).
-			SetTextColor(tcell.ColorYellow).
+			SetTextColor(theme.TableHeader).
+			SetAttributes(theme.TableHeaderAttr).
 			SetAlign(tview.AlignLeft).
 			SetSelectable(false)
 		table.SetCell(0, i, cell)
 	}
 
 	v := &PathsView{
-		table:     table,
-		tableMode: false,
+		table: table,
 	}
-
-	// Set up key handlers
-	table.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Rune() {
-		case 'T':
-			// Toggle table format
-			v.tableMode = !v.tableMode
-			v.table.SetBorders(v.tableMode)
-			if v.onStatusChange != nil {
-				if v.tableMode {
-					v.onStatusChange("Borders: ON", false)
-				} else {
-					v.onStatusChange("Borders: OFF", false)
-				}
-			}
-			return nil
-		}
-		return event
-	})
 
 	return v
 }
@@ -93,30 +74,25 @@ func (v *PathsView) refresh(ctx context.Context, client APIClient) error {
 
 		// Path
 		v.table.SetCell(row, 0, tview.NewTableCell(ps.Path).
-			SetTextColor(tcell.ColorWhite))
+			SetTextColor(theme.FgPrimary))
 
 		// Files
-		v.table.SetCell(row, 1, tview.NewTableCell(fmt.Sprintf("%d", ps.FileCount)).
-			SetTextColor(tcell.ColorWhite).
+		v.table.SetCell(row, 1, tview.NewTableCell(ui.FormatNumber(ps.FileCount)).
+			SetTextColor(theme.FgPrimary).
 			SetAlign(tview.AlignRight))
 
 		// Dirs
-		v.table.SetCell(row, 2, tview.NewTableCell(fmt.Sprintf("%d", ps.DirCount)).
-			SetTextColor(tcell.ColorWhite).
+		v.table.SetCell(row, 2, tview.NewTableCell(ui.FormatNumber(ps.DirCount)).
+			SetTextColor(theme.FgPrimary).
 			SetAlign(tview.AlignRight))
 
 		// Duration
-		v.table.SetCell(row, 3, tview.NewTableCell(formatDuration(ps.ScanDurationMs)).
-			SetTextColor(tcell.ColorWhite).
+		v.table.SetCell(row, 3, tview.NewTableCell(ui.FormatDuration(ps.ScanDurationMs)).
+			SetTextColor(theme.FgPrimary).
 			SetAlign(tview.AlignRight))
 
 		// Status with color coding
-		color := tcell.ColorGreen
-		if ps.Status == "ERROR" {
-			color = tcell.ColorRed
-		} else if ps.Status == "SCANNING" {
-			color = tcell.ColorYellow
-		}
+		color := theme.StatusColor(ps.Status)
 		v.table.SetCell(row, 4, tview.NewTableCell(ps.Status).
 			SetTextColor(color))
 	}
@@ -150,29 +126,4 @@ func (v *PathsView) TriggerScan(ctx context.Context, client *client.Client) erro
 	}
 
 	return client.TriggerScan(ctx, paths)
-}
-
-// formatDuration formats milliseconds into human-readable string
-func formatDuration(ms int64) string {
-	if ms == 0 {
-		return "0ms"
-	}
-
-	if ms < 1000 {
-		return fmt.Sprintf("%dms", ms)
-	}
-
-	seconds := ms / 1000
-	remainingMs := ms % 1000
-
-	if seconds < 60 {
-		if remainingMs > 0 {
-			return fmt.Sprintf("%.1fs", float64(ms)/1000.0)
-		}
-		return fmt.Sprintf("%ds", seconds)
-	}
-
-	minutes := seconds / 60
-	remainingSeconds := seconds % 60
-	return fmt.Sprintf("%dm%ds", minutes, remainingSeconds)
 }

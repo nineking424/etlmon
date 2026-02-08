@@ -43,3 +43,55 @@ func FormatDuration(ms int64) string {
 	remainingSeconds := seconds % 60
 	return fmt.Sprintf("%dm%ds", minutes, remainingSeconds)
 }
+
+// FormatGauge renders a text-based progress bar with percentage.
+// Example output: [████████░░] 89.1%
+func FormatGauge(percent float64, width int) string {
+	if width < 3 {
+		width = 3
+	}
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+
+	filled := int(percent / 100 * float64(width))
+	if filled > width {
+		filled = width
+	}
+
+	bar := ""
+	for i := 0; i < filled; i++ {
+		bar += "█"
+	}
+	for i := filled; i < width; i++ {
+		bar += "░"
+	}
+
+	return fmt.Sprintf("[%s] %5.1f%%", bar, percent)
+}
+
+// FormatNumber formats an integer with comma separators.
+// Example: 1234567 → "1,234,567"
+func FormatNumber(n int64) string {
+	if n < 0 {
+		return "-" + FormatNumber(-n)
+	}
+
+	s := fmt.Sprintf("%d", n)
+	if len(s) <= 3 {
+		return s
+	}
+
+	// Insert commas from right to left
+	var result []byte
+	for i, c := range s {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			result = append(result, ',')
+		}
+		result = append(result, byte(c))
+	}
+	return string(result)
+}

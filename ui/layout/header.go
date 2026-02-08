@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"github.com/etlmon/etlmon/ui/theme"
 	"github.com/rivo/tview"
 )
 
@@ -28,6 +29,12 @@ func NewHeader() *Header {
 		AddItem(h.context, 0, 3, false).
 		AddItem(h.resource, 0, 1, false)
 
+	// Apply theme colors
+	h.flex.SetBackgroundColor(theme.BgHeader)
+	h.logo.SetBackgroundColor(theme.BgHeader)
+	h.context.SetBackgroundColor(theme.BgHeader)
+	h.resource.SetBackgroundColor(theme.BgHeader)
+
 	return h
 }
 
@@ -37,7 +44,7 @@ func (h *Header) SetContext(nodeName string, status string) {
 	if status != "connected" && status != "ok" && status != "OK" {
 		color = "[red]"
 	}
-	h.context.SetText("  [yellow]Node:[white] " + nodeName + "  " + color + status)
+	h.context.SetText("  [teal]Node:[-] [white]" + nodeName + "[-]  " + color + status + "[-]")
 }
 
 // SetResource updates the resource info

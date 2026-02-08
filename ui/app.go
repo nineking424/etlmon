@@ -56,8 +56,8 @@ func (a *App) AddView(v View) {
 				if a.previous != "" && a.previous != "help" {
 					a.SwitchView(a.previous)
 				} else {
-					// If no previous view, go to fs view
-					a.SwitchView("fs")
+					// If no previous view, go to overview
+					a.SwitchView("overview")
 				}
 			})
 		}
@@ -82,6 +82,21 @@ func (a *App) SwitchView(name string) {
 			a.tview.Draw()
 		}()
 	}
+}
+
+// RefreshCurrentView refreshes the currently active view with fresh data
+func (a *App) RefreshCurrentView() {
+	a.tview.QueueUpdateDraw(func() {
+		if view, ok := a.views[a.current]; ok {
+			ctx := context.Background()
+			if err := view.Refresh(ctx, a.client); err != nil {
+				a.layout.SetMessage(err.Error(), true)
+			} else {
+				a.layout.SetMessage("Auto-refreshed", false)
+			}
+			a.layout.RefreshTimestamp()
+		}
+	})
 }
 
 // Run starts the TUI application
@@ -115,6 +130,9 @@ func (a *App) Run() error {
 	// Set up key bindings
 	a.tview.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Rune() {
+		case '0':
+			a.SwitchView("overview")
+			return nil
 		case '1':
 			a.SwitchView("fs")
 			return nil

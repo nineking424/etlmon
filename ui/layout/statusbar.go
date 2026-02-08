@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/etlmon/etlmon/ui/theme"
 	"github.com/rivo/tview"
 )
 
@@ -26,9 +26,10 @@ func NewStatusBar() *StatusBar {
 	}
 
 	// Set background color for status bar
-	s.viewInfo.SetBackgroundColor(tcell.ColorDarkGreen)
-	s.timestamp.SetBackgroundColor(tcell.ColorDarkGreen)
-	s.message.SetBackgroundColor(tcell.ColorDarkGreen)
+	s.flex.SetBackgroundColor(theme.BgStatusBar)
+	s.viewInfo.SetBackgroundColor(theme.BgStatusBar)
+	s.timestamp.SetBackgroundColor(theme.BgStatusBar)
+	s.message.SetBackgroundColor(theme.BgStatusBar)
 
 	// Horizontal layout
 	s.flex.SetDirection(tview.FlexColumn).
@@ -45,12 +46,12 @@ func NewStatusBar() *StatusBar {
 
 // SetView updates the current view name
 func (s *StatusBar) SetView(name string) {
-	s.viewInfo.SetText(fmt.Sprintf(" [white::b]View:[white:-] %s ", name))
+	s.viewInfo.SetText(fmt.Sprintf(" [teal::b]View:[-:-:-] %s ", name))
 }
 
 // SetLastRefresh updates the last refresh timestamp
 func (s *StatusBar) SetLastRefresh(t time.Time) {
-	s.timestamp.SetText(fmt.Sprintf("[gray]│[-] [white]Last:[gray] %s [gray]│[-]", t.Format("15:04:05")))
+	s.timestamp.SetText(fmt.Sprintf("[darkgray]│[-] [teal]Last:[-] [silver]%s[-] [darkgray]│[-]", t.Format("15:04:05")))
 }
 
 // SetMessage updates the status message

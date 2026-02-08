@@ -44,11 +44,13 @@ func main() {
 	// Create main UI app
 	app := ui.NewApp(httpClient)
 
-	// Create and register views
+	// Create and register views (overview first = default view)
+	overviewView := views.NewOverviewView()
 	fsView := views.NewFSView()
 	pathsView := views.NewPathsView()
 	helpView := views.NewHelpView()
 
+	app.AddView(overviewView)
 	app.AddView(fsView)
 	app.AddView(pathsView)
 	app.AddView(helpView)
@@ -72,8 +74,7 @@ func main() {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				// Refresh will be handled by the app's internal logic
-				// when views are switched
+				app.RefreshCurrentView()
 			}
 		}
 	}()

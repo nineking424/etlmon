@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/etlmon/etlmon/ui/client"
+	"github.com/etlmon/etlmon/ui/theme"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -19,27 +20,28 @@ func NewHelpView() *HelpView {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetWordWrap(true).
-		SetText(`[yellow::b]etlmon TUI - Keyboard Shortcuts[-::-]
+		SetText(`[aqua::b]etlmon TUI - Keyboard Shortcuts[-::-]
 
-[green::b]Navigation:[-::-]
-  1       Switch to Filesystem view
-  2       Switch to Paths view
-  ?/h     Show this help
+[teal::b]Navigation:[-::-]
+  [aqua]0[-]       Switch to Overview
+  [aqua]1[-]       Switch to Filesystem view
+  [aqua]2[-]       Switch to Paths view
+  [aqua]?/h[-]     Show this help
 
-[green::b]Actions:[-::-]
-  r       Refresh current view
-  s       Trigger path scan (Paths view)
-  T       Toggle table borders
+[teal::b]Actions:[-::-]
+  [aqua]r[-]       Refresh current view
+  [aqua]s[-]       Trigger path scan (Paths view)
 
-[green::b]General:[-::-]
-  q       Quit application
-  Ctrl+C  Force quit
+[teal::b]General:[-::-]
+  [aqua]q[-]       Quit application
+  [aqua]Ctrl+C[-]  Force quit
 
-[yellow]Press any key to return...[-]`)
+[silver]Press any key to return...[-]`)
 
 	textView.SetBorder(true).
 		SetTitle(" Help ").
-		SetTitleAlign(tview.AlignCenter)
+		SetTitleAlign(tview.AlignCenter).
+		SetBorderColor(theme.FgLabel)
 
 	view := &HelpView{
 		textView: textView,

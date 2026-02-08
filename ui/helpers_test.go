@@ -97,3 +97,103 @@ func TestFormatDuration_FormatsCorrectly(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatGauge_FormatsCorrectly(t *testing.T) {
+	tests := []struct {
+		name     string
+		percent  float64
+		width    int
+		expected string
+	}{
+		{
+			name:     "zero percent",
+			percent:  0,
+			width:    10,
+			expected: "[░░░░░░░░░░]   0.0%",
+		},
+		{
+			name:     "50 percent",
+			percent:  50,
+			width:    10,
+			expected: "[█████░░░░░]  50.0%",
+		},
+		{
+			name:     "100 percent",
+			percent:  100,
+			width:    10,
+			expected: "[██████████] 100.0%",
+		},
+		{
+			name:     "89.1 percent",
+			percent:  89.1,
+			width:    20,
+			expected: "[█████████████████░░░]  89.1%",
+		},
+		{
+			name:     "negative clamped to zero",
+			percent:  -5,
+			width:    5,
+			expected: "[░░░░░]   0.0%",
+		},
+		{
+			name:     "over 100 clamped",
+			percent:  150,
+			width:    5,
+			expected: "[█████] 100.0%",
+		},
+		{
+			name:     "minimum width",
+			percent:  50,
+			width:    1,
+			expected: "[█░░]  50.0%",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FormatGauge(tt.percent, tt.width)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestFormatNumber_FormatsCorrectly(t *testing.T) {
+	tests := []struct {
+		name     string
+		n        int64
+		expected string
+	}{
+		{
+			name:     "zero",
+			n:        0,
+			expected: "0",
+		},
+		{
+			name:     "small number",
+			n:        999,
+			expected: "999",
+		},
+		{
+			name:     "thousands",
+			n:        1234,
+			expected: "1,234",
+		},
+		{
+			name:     "millions",
+			n:        1234567,
+			expected: "1,234,567",
+		},
+		{
+			name:     "negative",
+			n:        -1234,
+			expected: "-1,234",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FormatNumber(tt.n)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
