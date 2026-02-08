@@ -44,7 +44,6 @@ func (a *App) AddView(v View) {
 	if setter, ok := v.(statusCallbackSetter); ok {
 		setter.SetStatusCallback(func(msg string, isError bool) {
 			a.layout.SetMessage(msg, isError)
-			a.tview.Draw()
 		})
 	}
 
@@ -144,6 +143,17 @@ func (a *App) Run() error {
 
 	// Set up key bindings
 	a.tview.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// When settings view has a modal open, pass all keys through
+		// so the user can type in form input fields without triggering view switches
+		if a.current == "settings" {
+			type editChecker interface {
+				IsEditing() bool
+			}
+			if sv, ok := a.views["settings"].(editChecker); ok && sv.IsEditing() {
+				return event
+			}
+		}
+
 		switch event.Rune() {
 		case '0':
 			a.SwitchView("overview")

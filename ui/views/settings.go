@@ -20,8 +20,9 @@ type settingsAPIClient interface {
 	SaveConfig(ctx context.Context, cfg *config.NodeConfig) error
 }
 
-// SettingsView provides a sectioned configuration editor with table-based editing
+// SettingsView provides a sectioned configuration editor
 type SettingsView struct {
+	pages          *tview.Pages
 	flex           *tview.Flex
 	sectionList    *tview.List
 	contentArea    *tview.Flex
@@ -30,18 +31,16 @@ type SettingsView struct {
 	currentSection int
 	apiClient      settingsAPIClient
 	tviewApp       *tview.Application
-	modalActive    bool
 	dirty          bool
 
 	onStatusChange func(msg string, isError bool)
 
-	// Section-specific widgets
 	processTable *tview.Table
 	logTable     *tview.Table
 	pathTable    *tview.Table
 }
 
-// NewSettingsView creates a new settings view with sectioned navigation
+// NewSettingsView creates a new settings view
 func NewSettingsView() *SettingsView {
 	v := &SettingsView{}
 
@@ -63,10 +62,9 @@ func NewSettingsView() *SettingsView {
 		v.currentSection = index
 		v.showSection(index)
 	})
-
 	v.sectionList = sectionList
 
-	// Content area (right side)
+	// Content area
 	contentArea := tview.NewFlex().SetDirection(tview.FlexRow)
 	v.contentArea = contentArea
 
@@ -75,7 +73,7 @@ func NewSettingsView() *SettingsView {
 	v.logTable = v.createLogTable()
 	v.pathTable = v.createPathTable()
 
-	// Hint bar at bottom
+	// Hint bar
 	hintBar := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
@@ -83,28 +81,21 @@ func NewSettingsView() *SettingsView {
 	hintBar.SetBackgroundColor(theme.BgStatusBar)
 	v.hintBar = hintBar
 
-	// Main layout: sidebar + content
+	// Main layout
 	mainFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
 		AddItem(sectionList, 24, 0, true).
 		AddItem(contentArea, 0, 1, false)
 
-	// Overall layout with hint bar at bottom
 	v.flex = tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(mainFlex, 0, 1, true).
 		AddItem(hintBar, 1, 0, false)
 
-	// Set up input capture for the entire settings view
+	// Set up input capture for main view (NOT modal)
 	v.flex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		// When modal is active, only handle Esc to close it
-		// Pass ALL other events through to the form (Tab, Enter, letters, etc.)
-		if v.modalActive {
-			if event.Key() == tcell.KeyEsc {
-				v.dismissModal()
-				return nil
-			}
+		// Pass through all keys when modal is open
+		if v.IsEditing() {
 			return event
 		}
-
 		// Tab: switch focus between sidebar and content
 		if event.Key() == tcell.KeyTab || event.Key() == tcell.KeyBacktab {
 			if v.sectionList.HasFocus() {
@@ -117,7 +108,7 @@ func NewSettingsView() *SettingsView {
 			return nil
 		}
 
-		// 's' key: save (only when content table has focus, not sidebar)
+		// 's' key: save (only when content table has focus)
 		if event.Rune() == 's' && !v.sectionList.HasFocus() {
 			v.save()
 			return nil
@@ -126,15 +117,24 @@ func NewSettingsView() *SettingsView {
 		return event
 	})
 
+	// Use Pages as root: "main" page + "modal" overlay
+	v.pages = tview.NewPages().
+		AddPage("main", v.flex, true, true)
+
 	// Show initial section
 	v.showSection(0)
 
 	return v
 }
 
-// SetApp sets the tview application reference for focus management
+// SetApp sets the tview application reference
 func (v *SettingsView) SetApp(app *tview.Application) {
 	v.tviewApp = app
+}
+
+// IsEditing returns true when a modal dialog is open
+func (v *SettingsView) IsEditing() bool {
+	return v.pages.HasPage("modal")
 }
 
 // Name returns the view name
@@ -142,28 +142,32 @@ func (v *SettingsView) Name() string {
 	return "settings"
 }
 
-// Primitive returns the tview primitive
+// Primitive returns the root tview primitive
 func (v *SettingsView) Primitive() tview.Primitive {
-	return v.flex
+	return v.pages
 }
 
-// Refresh updates the view with fresh data from the API
+// Refresh loads config from the API
 func (v *SettingsView) Refresh(ctx context.Context, c *client.Client) error {
 	v.apiClient = c
 	return v.refresh(ctx, c)
 }
 
-// Focus sets focus on the section list
-func (v *SettingsView) Focus() {}
+// Focus sets initial focus on the section list
+func (v *SettingsView) Focus() {
+	if v.tviewApp != nil {
+		v.tviewApp.SetFocus(v.sectionList)
+	}
+}
 
-// SetStatusCallback sets the function to call for status updates
+// SetStatusCallback sets the status message callback
 func (v *SettingsView) SetStatusCallback(cb func(msg string, isError bool)) {
 	v.onStatusChange = cb
 }
 
 func (v *SettingsView) refresh(ctx context.Context, c settingsAPIClient) error {
-	if v.dirty {
-		return nil // Don't overwrite local changes during auto-refresh
+	if v.dirty || v.IsEditing() {
+		return nil
 	}
 	cfg, err := c.GetConfig(ctx)
 	if err != nil {
@@ -182,11 +186,11 @@ func (v *SettingsView) showSection(index int) {
 	v.contentArea.Clear()
 	switch index {
 	case 0:
-		v.contentArea.AddItem(v.processTable, 0, 1, false)
+		v.contentArea.AddItem(v.processTable, 0, 1, true)
 	case 1:
-		v.contentArea.AddItem(v.logTable, 0, 1, false)
+		v.contentArea.AddItem(v.logTable, 0, 1, true)
 	case 2:
-		v.contentArea.AddItem(v.pathTable, 0, 1, false)
+		v.contentArea.AddItem(v.pathTable, 0, 1, true)
 	}
 }
 
@@ -216,7 +220,6 @@ func (v *SettingsView) createProcessTable() *tview.Table {
 		SetTitleAlign(tview.AlignLeft).
 		SetBorderColor(theme.FgLabel)
 
-	// Header
 	table.SetCell(0, 0, tview.NewTableCell("Pattern (glob: * matches any chars)").
 		SetTextColor(theme.TableHeader).
 		SetAttributes(theme.TableHeaderAttr).
@@ -239,7 +242,6 @@ func (v *SettingsView) createProcessTable() *tview.Table {
 }
 
 func (v *SettingsView) refreshProcessTable() {
-	// Clear existing rows (keep header)
 	for i := v.processTable.GetRowCount() - 1; i > 0; i-- {
 		v.processTable.RemoveRow(i)
 	}
@@ -260,7 +262,6 @@ func (v *SettingsView) refreshProcessTable() {
 		}
 	}
 
-	// Add TopN info row
 	topNRow := v.processTable.GetRowCount()
 	v.processTable.SetCell(topNRow, 0, tview.NewTableCell("").SetSelectable(false))
 	topNRow++
@@ -277,31 +278,25 @@ func (v *SettingsView) addProcessPattern() {
 	}
 
 	form := tview.NewForm()
-	form.SetBorder(true).
-		SetTitle(" Add Process Pattern ").
-		SetTitleAlign(tview.AlignCenter).
-		SetBorderColor(theme.FgAccent)
-	form.SetFieldBackgroundColor(theme.BgSelected)
-	form.SetFieldTextColor(theme.FgPrimary)
-	form.SetLabelColor(theme.FgLabel)
-	form.SetButtonBackgroundColor(theme.BgNavBar)
-	form.SetButtonTextColor(theme.FgPrimary)
+	v.styleForm(form, " Add Process Pattern ")
 
-	var pattern string
-	form.AddInputField("Pattern:", "", 40, nil, func(text string) {
-		pattern = text
-	})
+	form.AddInputField("Pattern:", "", 40, nil, nil)
 	form.AddButton("Add", func() {
-		pattern = strings.TrimSpace(pattern)
-		if pattern != "" {
-			v.cfg.Process.Patterns = append(v.cfg.Process.Patterns, pattern)
-			v.dirty = true
-			v.refreshProcessTable()
-			v.setStatus("Modified (press 's' to save)", false)
+		if field, ok := form.GetFormItem(0).(*tview.InputField); ok {
+			pattern := strings.TrimSpace(field.GetText())
+			if pattern != "" {
+				v.cfg.Process.Patterns = append(v.cfg.Process.Patterns, pattern)
+				v.dirty = true
+				v.refreshProcessTable()
+				v.setStatus("Modified (press 's' to save)", false)
+			}
 		}
 		v.dismissModal()
 	})
 	form.AddButton("Cancel", func() {
+		v.dismissModal()
+	})
+	form.SetCancelFunc(func() {
 		v.dismissModal()
 	})
 
@@ -313,7 +308,7 @@ func (v *SettingsView) deleteProcessPattern() {
 		return
 	}
 	row, _ := v.processTable.GetSelection()
-	idx := row - 1 // offset for header
+	idx := row - 1
 	if idx < 0 || idx >= len(v.cfg.Process.Patterns) {
 		return
 	}
@@ -335,7 +330,6 @@ func (v *SettingsView) createLogTable() *tview.Table {
 		SetTitleAlign(tview.AlignLeft).
 		SetBorderColor(theme.FgLabel)
 
-	// Headers
 	headers := []string{"Name", "Path", "MaxLines"}
 	for i, h := range headers {
 		cell := tview.NewTableCell(h).
@@ -398,31 +392,23 @@ func (v *SettingsView) addLogEntry() {
 	}
 
 	form := tview.NewForm()
-	form.SetBorder(true).
-		SetTitle(" Add Log Monitor ").
-		SetTitleAlign(tview.AlignCenter).
-		SetBorderColor(theme.FgAccent)
-	form.SetFieldBackgroundColor(theme.BgSelected)
-	form.SetFieldTextColor(theme.FgPrimary)
-	form.SetLabelColor(theme.FgLabel)
-	form.SetButtonBackgroundColor(theme.BgNavBar)
-	form.SetButtonTextColor(theme.FgPrimary)
+	v.styleForm(form, " Add Log Monitor ")
 
-	var name, logPath string
-	maxLines := "1000"
-	form.AddInputField("Name:", "", 40, nil, func(text string) {
-		name = text
-	})
-	form.AddInputField("Path:", "", 40, nil, func(text string) {
-		logPath = text
-	})
-	form.AddInputField("Max Lines:", maxLines, 10, nil, func(text string) {
-		maxLines = text
-	})
+	form.AddInputField("Name:", "", 40, nil, nil)
+	form.AddInputField("Path:", "", 40, nil, nil)
+	form.AddInputField("Max Lines:", "1000", 10, nil, nil)
 	form.AddButton("Add", func() {
-		name = strings.TrimSpace(name)
-		logPath = strings.TrimSpace(logPath)
-		ml, err := strconv.Atoi(strings.TrimSpace(maxLines))
+		nameField, ok1 := form.GetFormItem(0).(*tview.InputField)
+		pathField, ok2 := form.GetFormItem(1).(*tview.InputField)
+		mlField, ok3 := form.GetFormItem(2).(*tview.InputField)
+		if !ok1 || !ok2 || !ok3 {
+			v.dismissModal()
+			return
+		}
+		name := strings.TrimSpace(nameField.GetText())
+		logPath := strings.TrimSpace(pathField.GetText())
+		mlStr := strings.TrimSpace(mlField.GetText())
+		ml, err := strconv.Atoi(mlStr)
 		if err != nil || ml <= 0 {
 			ml = 1000
 		}
@@ -439,6 +425,9 @@ func (v *SettingsView) addLogEntry() {
 		v.dismissModal()
 	})
 	form.AddButton("Cancel", func() {
+		v.dismissModal()
+	})
+	form.SetCancelFunc(func() {
 		v.dismissModal()
 	})
 
@@ -472,7 +461,6 @@ func (v *SettingsView) createPathTable() *tview.Table {
 		SetTitleAlign(tview.AlignLeft).
 		SetBorderColor(theme.FgLabel)
 
-	// Headers
 	headers := []string{"Path", "Interval", "MaxDepth"}
 	for i, h := range headers {
 		cell := tview.NewTableCell(h).
@@ -536,35 +524,25 @@ func (v *SettingsView) addPathEntry() {
 	}
 
 	form := tview.NewForm()
-	form.SetBorder(true).
-		SetTitle(" Add Path ").
-		SetTitleAlign(tview.AlignCenter).
-		SetBorderColor(theme.FgAccent)
-	form.SetFieldBackgroundColor(theme.BgSelected)
-	form.SetFieldTextColor(theme.FgPrimary)
-	form.SetLabelColor(theme.FgLabel)
-	form.SetButtonBackgroundColor(theme.BgNavBar)
-	form.SetButtonTextColor(theme.FgPrimary)
+	v.styleForm(form, " Add Path ")
 
-	var pathStr, intervalStr, depthStr string
-	intervalStr = "60"
-	depthStr = "10"
-	form.AddInputField("Path:", "", 40, nil, func(text string) {
-		pathStr = text
-	})
-	form.AddInputField("Scan Interval (sec):", intervalStr, 10, nil, func(text string) {
-		intervalStr = text
-	})
-	form.AddInputField("Max Depth:", depthStr, 10, nil, func(text string) {
-		depthStr = text
-	})
+	form.AddInputField("Path:", "", 40, nil, nil)
+	form.AddInputField("Interval (sec):", "60", 10, nil, nil)
+	form.AddInputField("Max Depth:", "10", 10, nil, nil)
 	form.AddButton("Add", func() {
-		pathStr = strings.TrimSpace(pathStr)
-		interval, err := strconv.Atoi(strings.TrimSpace(intervalStr))
+		pathField, ok1 := form.GetFormItem(0).(*tview.InputField)
+		intervalField, ok2 := form.GetFormItem(1).(*tview.InputField)
+		depthField, ok3 := form.GetFormItem(2).(*tview.InputField)
+		if !ok1 || !ok2 || !ok3 {
+			v.dismissModal()
+			return
+		}
+		pathStr := strings.TrimSpace(pathField.GetText())
+		interval, err := strconv.Atoi(strings.TrimSpace(intervalField.GetText()))
 		if err != nil || interval <= 0 {
 			interval = 60
 		}
-		depth, err := strconv.Atoi(strings.TrimSpace(depthStr))
+		depth, err := strconv.Atoi(strings.TrimSpace(depthField.GetText()))
 		if err != nil || depth <= 0 {
 			depth = 10
 		}
@@ -582,6 +560,9 @@ func (v *SettingsView) addPathEntry() {
 		v.dismissModal()
 	})
 	form.AddButton("Cancel", func() {
+		v.dismissModal()
+	})
+	form.SetCancelFunc(func() {
 		v.dismissModal()
 	})
 
@@ -605,12 +586,24 @@ func (v *SettingsView) deletePathEntry() {
 
 // ----- Modal helpers -----
 
+func (v *SettingsView) styleForm(form *tview.Form, title string) {
+	form.SetBorder(true).
+		SetTitle(title).
+		SetTitleAlign(tview.AlignCenter).
+		SetBorderColor(theme.FgAccent)
+	form.SetFieldBackgroundColor(theme.BgSelected)
+	form.SetFieldTextColor(theme.FgPrimary)
+	form.SetLabelColor(theme.FgLabel)
+	form.SetButtonBackgroundColor(theme.BgNavBar)
+	form.SetButtonTextColor(theme.FgPrimary)
+}
+
 func (v *SettingsView) showModal(form *tview.Form, width, height int) {
 	if v.tviewApp == nil {
 		return
 	}
-	v.modalActive = true
-	// Create a modal-like overlay using a Flex centered in the content area
+
+	// Create centered overlay
 	modal := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(nil, 0, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
@@ -620,15 +613,18 @@ func (v *SettingsView) showModal(form *tview.Form, width, height int) {
 			height, 0, true).
 		AddItem(nil, 0, 1, false)
 
-	// Replace content area with modal
-	v.contentArea.Clear()
-	v.contentArea.AddItem(modal, 0, 1, true)
+	// Blur current content focus before adding modal overlay.
+	// Without this, both "main" and "modal" pages have HasFocus()=true
+	// and tview Pages routes events to "main" (added first) instead of "modal".
+	v.tviewApp.SetFocus(v.pages)
+	v.pages.AddPage("modal", modal, true, true)
 	v.tviewApp.SetFocus(form)
 }
 
 func (v *SettingsView) dismissModal() {
-	v.modalActive = false
-	v.showSection(v.currentSection)
+	if v.pages.HasPage("modal") {
+		v.pages.RemovePage("modal")
+	}
 	v.focusContent()
 }
 
