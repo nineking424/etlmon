@@ -31,6 +31,7 @@ type SettingsView struct {
 	apiClient      settingsAPIClient
 	tviewApp       *tview.Application
 	modalActive    bool
+	dirty          bool
 
 	onStatusChange func(msg string, isError bool)
 
@@ -161,6 +162,9 @@ func (v *SettingsView) SetStatusCallback(cb func(msg string, isError bool)) {
 }
 
 func (v *SettingsView) refresh(ctx context.Context, c settingsAPIClient) error {
+	if v.dirty {
+		return nil // Don't overwrite local changes during auto-refresh
+	}
 	cfg, err := c.GetConfig(ctx)
 	if err != nil {
 		return err
@@ -291,7 +295,9 @@ func (v *SettingsView) addProcessPattern() {
 		pattern = strings.TrimSpace(pattern)
 		if pattern != "" {
 			v.cfg.Process.Patterns = append(v.cfg.Process.Patterns, pattern)
+			v.dirty = true
 			v.refreshProcessTable()
+			v.setStatus("Modified (press 's' to save)", false)
 		}
 		v.dismissModal()
 	})
@@ -312,7 +318,9 @@ func (v *SettingsView) deleteProcessPattern() {
 		return
 	}
 	v.cfg.Process.Patterns = append(v.cfg.Process.Patterns[:idx], v.cfg.Process.Patterns[idx+1:]...)
+	v.dirty = true
 	v.refreshProcessTable()
+	v.setStatus("Modified (press 's' to save)", false)
 }
 
 // ----- Log Table -----
@@ -424,7 +432,9 @@ func (v *SettingsView) addLogEntry() {
 				Path:     logPath,
 				MaxLines: ml,
 			})
+			v.dirty = true
 			v.refreshLogTable()
+			v.setStatus("Modified (press 's' to save)", false)
 		}
 		v.dismissModal()
 	})
@@ -445,7 +455,9 @@ func (v *SettingsView) deleteLogEntry() {
 		return
 	}
 	v.cfg.Logs = append(v.cfg.Logs[:idx], v.cfg.Logs[idx+1:]...)
+	v.dirty = true
 	v.refreshLogTable()
+	v.setStatus("Modified (press 's' to save)", false)
 }
 
 // ----- Path Table -----
@@ -563,7 +575,9 @@ func (v *SettingsView) addPathEntry() {
 				MaxDepth:     depth,
 				Timeout:      30 * time.Second,
 			})
+			v.dirty = true
 			v.refreshPathTable()
+			v.setStatus("Modified (press 's' to save)", false)
 		}
 		v.dismissModal()
 	})
@@ -584,7 +598,9 @@ func (v *SettingsView) deletePathEntry() {
 		return
 	}
 	v.cfg.Paths = append(v.cfg.Paths[:idx], v.cfg.Paths[idx+1:]...)
+	v.dirty = true
 	v.refreshPathTable()
+	v.setStatus("Modified (press 's' to save)", false)
 }
 
 // ----- Modal helpers -----
@@ -634,7 +650,8 @@ func (v *SettingsView) save() {
 		return
 	}
 
-	v.setStatus("Settings saved successfully", false)
+	v.dirty = false
+	v.setStatus("Settings saved successfully (restart node to apply)", false)
 }
 
 func (v *SettingsView) setStatus(msg string, isError bool) {
