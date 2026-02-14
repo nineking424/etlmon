@@ -77,7 +77,7 @@ func NewSettingsView() *SettingsView {
 	hintBar := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter)
-	hintBar.SetText("[teal]a[silver]=add  [teal]d[silver]=delete  [teal]s[silver]=save  [teal]Tab[silver]=switch pane  [teal]\u2191\u2193[silver]=navigate")
+	hintBar.SetText("[teal]a[silver]=add  [teal]e[silver]=edit  [teal]d[silver]=delete  [teal]s[silver]=save  [teal]Tab[silver]=switch pane  [teal]\u2191\u2193[silver]=navigate")
 	hintBar.SetBackgroundColor(theme.BgStatusBar)
 	v.hintBar = hintBar
 
@@ -231,6 +231,9 @@ func (v *SettingsView) createProcessTable() *tview.Table {
 		case 'a':
 			v.addProcessPattern()
 			return nil
+		case 'e':
+			v.editProcessPattern()
+			return nil
 		case 'd':
 			v.deleteProcessPattern()
 			return nil
@@ -303,6 +306,43 @@ func (v *SettingsView) addProcessPattern() {
 	v.showModal(form, 50, 7)
 }
 
+func (v *SettingsView) editProcessPattern() {
+	if v.cfg == nil || v.tviewApp == nil {
+		return
+	}
+	row, _ := v.processTable.GetSelection()
+	idx := row - 1
+	if idx < 0 || idx >= len(v.cfg.Process.Patterns) {
+		return
+	}
+
+	current := v.cfg.Process.Patterns[idx]
+	form := tview.NewForm()
+	v.styleForm(form, " Edit Process Pattern ")
+
+	form.AddInputField("Pattern:", current, 40, nil, nil)
+	form.AddButton("Save", func() {
+		if field, ok := form.GetFormItem(0).(*tview.InputField); ok {
+			pattern := strings.TrimSpace(field.GetText())
+			if pattern != "" {
+				v.cfg.Process.Patterns[idx] = pattern
+				v.dirty = true
+				v.refreshProcessTable()
+				v.setStatus("Modified (press 's' to save)", false)
+			}
+		}
+		v.dismissModal()
+	})
+	form.AddButton("Cancel", func() {
+		v.dismissModal()
+	})
+	form.SetCancelFunc(func() {
+		v.dismissModal()
+	})
+
+	v.showModal(form, 50, 7)
+}
+
 func (v *SettingsView) deleteProcessPattern() {
 	if v.cfg == nil || len(v.cfg.Process.Patterns) == 0 {
 		return
@@ -346,6 +386,9 @@ func (v *SettingsView) createLogTable() *tview.Table {
 		switch event.Rune() {
 		case 'a':
 			v.addLogEntry()
+			return nil
+		case 'e':
+			v.editLogEntry()
 			return nil
 		case 'd':
 			v.deleteLogEntry()
@@ -434,6 +477,60 @@ func (v *SettingsView) addLogEntry() {
 	v.showModal(form, 55, 11)
 }
 
+func (v *SettingsView) editLogEntry() {
+	if v.cfg == nil || v.tviewApp == nil {
+		return
+	}
+	row, _ := v.logTable.GetSelection()
+	idx := row - 1
+	if idx < 0 || idx >= len(v.cfg.Logs) {
+		return
+	}
+
+	entry := v.cfg.Logs[idx]
+	form := tview.NewForm()
+	v.styleForm(form, " Edit Log Monitor ")
+
+	form.AddInputField("Name:", entry.Name, 40, nil, nil)
+	form.AddInputField("Path:", entry.Path, 40, nil, nil)
+	form.AddInputField("Max Lines:", strconv.Itoa(entry.MaxLines), 10, nil, nil)
+	form.AddButton("Save", func() {
+		nameField, ok1 := form.GetFormItem(0).(*tview.InputField)
+		pathField, ok2 := form.GetFormItem(1).(*tview.InputField)
+		mlField, ok3 := form.GetFormItem(2).(*tview.InputField)
+		if !ok1 || !ok2 || !ok3 {
+			v.dismissModal()
+			return
+		}
+		name := strings.TrimSpace(nameField.GetText())
+		logPath := strings.TrimSpace(pathField.GetText())
+		mlStr := strings.TrimSpace(mlField.GetText())
+		ml, err := strconv.Atoi(mlStr)
+		if err != nil || ml <= 0 {
+			ml = 1000
+		}
+		if name != "" && logPath != "" {
+			v.cfg.Logs[idx] = config.LogMonitorConfig{
+				Name:     name,
+				Path:     logPath,
+				MaxLines: ml,
+			}
+			v.dirty = true
+			v.refreshLogTable()
+			v.setStatus("Modified (press 's' to save)", false)
+		}
+		v.dismissModal()
+	})
+	form.AddButton("Cancel", func() {
+		v.dismissModal()
+	})
+	form.SetCancelFunc(func() {
+		v.dismissModal()
+	})
+
+	v.showModal(form, 55, 11)
+}
+
 func (v *SettingsView) deleteLogEntry() {
 	if v.cfg == nil || len(v.cfg.Logs) == 0 {
 		return
@@ -477,6 +574,9 @@ func (v *SettingsView) createPathTable() *tview.Table {
 		switch event.Rune() {
 		case 'a':
 			v.addPathEntry()
+			return nil
+		case 'e':
+			v.editPathEntry()
 			return nil
 		case 'd':
 			v.deletePathEntry()
@@ -553,6 +653,63 @@ func (v *SettingsView) addPathEntry() {
 				MaxDepth:     depth,
 				Timeout:      30 * time.Second,
 			})
+			v.dirty = true
+			v.refreshPathTable()
+			v.setStatus("Modified (press 's' to save)", false)
+		}
+		v.dismissModal()
+	})
+	form.AddButton("Cancel", func() {
+		v.dismissModal()
+	})
+	form.SetCancelFunc(func() {
+		v.dismissModal()
+	})
+
+	v.showModal(form, 55, 11)
+}
+
+func (v *SettingsView) editPathEntry() {
+	if v.cfg == nil || v.tviewApp == nil {
+		return
+	}
+	row, _ := v.pathTable.GetSelection()
+	idx := row - 1
+	if idx < 0 || idx >= len(v.cfg.Paths) {
+		return
+	}
+
+	entry := v.cfg.Paths[idx]
+	form := tview.NewForm()
+	v.styleForm(form, " Edit Path ")
+
+	form.AddInputField("Path:", entry.Path, 40, nil, nil)
+	form.AddInputField("Interval (sec):", strconv.Itoa(int(entry.ScanInterval.Seconds())), 10, nil, nil)
+	form.AddInputField("Max Depth:", strconv.Itoa(entry.MaxDepth), 10, nil, nil)
+	form.AddButton("Save", func() {
+		pathField, ok1 := form.GetFormItem(0).(*tview.InputField)
+		intervalField, ok2 := form.GetFormItem(1).(*tview.InputField)
+		depthField, ok3 := form.GetFormItem(2).(*tview.InputField)
+		if !ok1 || !ok2 || !ok3 {
+			v.dismissModal()
+			return
+		}
+		pathStr := strings.TrimSpace(pathField.GetText())
+		interval, err := strconv.Atoi(strings.TrimSpace(intervalField.GetText()))
+		if err != nil || interval <= 0 {
+			interval = 60
+		}
+		depth, err := strconv.Atoi(strings.TrimSpace(depthField.GetText()))
+		if err != nil || depth <= 0 {
+			depth = 10
+		}
+		if pathStr != "" {
+			v.cfg.Paths[idx] = config.PathConfig{
+				Path:         pathStr,
+				ScanInterval: time.Duration(interval) * time.Second,
+				MaxDepth:     depth,
+				Timeout:      30 * time.Second,
+			}
 			v.dirty = true
 			v.refreshPathTable()
 			v.setStatus("Modified (press 's' to save)", false)

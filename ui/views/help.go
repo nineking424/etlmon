@@ -35,6 +35,13 @@ func NewHelpView() *HelpView {
   [aqua]r[-]       Refresh current view
   [aqua]s[-]       Trigger path scan (Paths view)
 
+[teal::b]Settings (Settings view):[-::-]
+  [aqua]a[-]       Add new entry
+  [aqua]e[-]       Edit selected entry
+  [aqua]d[-]       Delete selected entry
+  [aqua]s[-]       Save settings
+  [aqua]Tab[-]     Switch between sidebar and content
+
 [teal::b]General:[-::-]
   [aqua]q[-]       Quit application
   [aqua]Ctrl+C[-]  Force quit
