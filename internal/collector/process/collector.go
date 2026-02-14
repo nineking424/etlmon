@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -201,6 +202,10 @@ func parsePsLine(line string) (*models.ProcessInfo, error) {
 	// Convert state code to human-readable
 	status := parseState(fields[4])
 
+	// Extract basename from command path (fields[6] is the comm field)
+	// On macOS, comm can include path prefixes like ./ or full paths
+	commandName := filepath.Base(fields[6])
+
 	return &models.ProcessInfo{
 		PID:         pid,
 		User:        fields[1],
@@ -208,7 +213,7 @@ func parsePsLine(line string) (*models.ProcessInfo, error) {
 		MemRSS:      rss * 1024, // ps reports RSS in KB, convert to bytes
 		Status:      status,
 		Elapsed:     fields[5],
-		Name:        strings.Join(fields[6:], " "),
+		Name:        commandName,
 		CollectedAt: time.Now(),
 	}, nil
 }

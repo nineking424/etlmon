@@ -69,7 +69,7 @@ func (t *LogTailer) Start(ctx context.Context) error {
 	t.cancel = cancel
 	t.mu.Unlock()
 
-	// Initialize states - seek to end of each file
+	// Initialize states - start from beginning to read existing content
 	for _, cfg := range t.configs {
 		info, err := os.Stat(cfg.Path)
 		if err != nil {
@@ -78,7 +78,7 @@ func (t *LogTailer) Start(ctx context.Context) error {
 			continue
 		}
 		t.states[cfg.Name] = &tailState{
-			offset: info.Size(),
+			offset: 0,
 			size:   info.Size(),
 		}
 	}
