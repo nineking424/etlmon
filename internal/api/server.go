@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -14,31 +15,67 @@ type PathScanner interface {
 	ScanPaths(paths []string) error
 }
 
+// ScannerProxy wraps a PathScanner and allows hot-swapping the underlying scanner
+type ScannerProxy struct {
+	mu      sync.RWMutex
+	scanner PathScanner
+}
+
+// NewScannerProxy creates a new scanner proxy
+func NewScannerProxy() *ScannerProxy {
+	return &ScannerProxy{}
+}
+
+// ScanPaths delegates to the underlying scanner
+func (p *ScannerProxy) ScanPaths(paths []string) error {
+	p.mu.RLock()
+	s := p.scanner
+	p.mu.RUnlock()
+	if s == nil {
+		return fmt.Errorf("scanner not available")
+	}
+	return s.ScanPaths(paths)
+}
+
+// Update replaces the underlying scanner
+func (p *ScannerProxy) Update(scanner PathScanner) {
+	p.mu.Lock()
+	p.scanner = scanner
+	p.mu.Unlock()
+}
+
 // Server represents the HTTP API server
 type Server struct {
-	addr       string
-	repo       *repository.Repository
-	nodeName   string
-	configPath string
-	httpServer *http.Server
-	scanner    PathScanner
-	listener   net.Listener
-	mu         sync.RWMutex
+	addr           string
+	repo           *repository.Repository
+	nodeName       string
+	configPath     string
+	httpServer     *http.Server
+	scannerProxy   *ScannerProxy
+	onConfigReload func()
+	listener       net.Listener
+	mu             sync.RWMutex
 }
 
 // NewServer creates a new API server
 func NewServer(addr string, repo *repository.Repository, nodeName string, configPath string) *Server {
 	return &Server{
-		addr:       addr,
-		repo:       repo,
-		nodeName:   nodeName,
-		configPath: configPath,
+		addr:         addr,
+		repo:         repo,
+		nodeName:     nodeName,
+		configPath:   configPath,
+		scannerProxy: NewScannerProxy(),
 	}
 }
 
 // SetPathScanner sets the path scanner for triggering scans
 func (s *Server) SetPathScanner(scanner PathScanner) {
-	s.scanner = scanner
+	s.scannerProxy.Update(scanner)
+}
+
+// SetConfigReloadCallback sets the callback to invoke when config is updated via API
+func (s *Server) SetConfigReloadCallback(cb func()) {
+	s.onConfigReload = cb
 }
 
 // Start starts the HTTP server (blocking)

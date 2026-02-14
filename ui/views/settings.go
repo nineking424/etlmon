@@ -804,7 +804,7 @@ func (v *SettingsView) save() {
 	}
 
 	v.dirty = false
-	v.setStatus("Settings saved successfully (restart node to apply)", false)
+	v.setStatus("Settings saved and applied", false)
 }
 
 func (v *SettingsView) setStatus(msg string, isError bool) {

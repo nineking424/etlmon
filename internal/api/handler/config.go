@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/etlmon/etlmon/internal/config"
@@ -12,11 +13,12 @@ import (
 // ConfigHandler handles configuration API requests
 type ConfigHandler struct {
 	configPath string
+	onReload   func()
 }
 
 // NewConfigHandler creates a new config handler
-func NewConfigHandler(configPath string) *ConfigHandler {
-	return &ConfigHandler{configPath: configPath}
+func NewConfigHandler(configPath string, onReload func()) *ConfigHandler {
+	return &ConfigHandler{configPath: configPath, onReload: onReload}
 }
 
 // Get handles GET /api/v1/config
@@ -48,6 +50,14 @@ func (h *ConfigHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err := config.SaveNodeConfig(h.configPath, &cfg); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
+	}
+
+	// Trigger config reload (restart collectors with new config)
+	if h.onReload != nil {
+		go func() {
+			slog.Info("triggering config reload")
+			h.onReload()
+		}()
 	}
 
 	resp := models.Response{Data: map[string]string{"status": "saved"}}

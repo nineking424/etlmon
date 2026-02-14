@@ -47,10 +47,10 @@ func (a *App) AddView(v View) {
 		})
 	}
 
-	// Setup app reference for settings view
-	if v.Name() == "settings" {
-		if settingsView, ok := v.(interface{ SetApp(*tview.Application) }); ok {
-			settingsView.SetApp(a.tview)
+	// Setup app reference for views that need it
+	if v.Name() == "settings" || v.Name() == "logs" {
+		if appSetter, ok := v.(interface{ SetApp(*tview.Application) }); ok {
+			appSetter.SetApp(a.tview)
 		}
 	}
 

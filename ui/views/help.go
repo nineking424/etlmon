@@ -35,6 +35,11 @@ func NewHelpView() *HelpView {
   [aqua]r[-]       Refresh current view
   [aqua]s[-]       Trigger path scan (Paths view)
 
+[teal::b]Logs (Logs view):[-::-]
+  [aqua]Enter[-]   View selected log
+  [aqua]Esc[-]     Close log detail
+  [aqua]Tab[-]     Switch between list and detail
+
 [teal::b]Settings (Settings view):[-::-]
   [aqua]a[-]       Add new entry
   [aqua]e[-]       Edit selected entry

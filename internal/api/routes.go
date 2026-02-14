@@ -16,13 +16,11 @@ func (s *Server) setupRoutes() http.Handler {
 	processHandler := handler.NewProcessHandler(s.repo.Process)
 	logHandler := handler.NewLogHandler(s.repo.Log)
 
-	// Set scanner if available
-	if s.scanner != nil {
-		pathsHandler.SetScanner(s.scanner)
-	}
+	// Set scanner proxy (supports hot-swap on config reload)
+	pathsHandler.SetScanner(s.scannerProxy)
 
-	// Config handler
-	configHandler := handler.NewConfigHandler(s.configPath)
+	// Config handler with reload callback
+	configHandler := handler.NewConfigHandler(s.configPath, s.onConfigReload)
 	mux.HandleFunc("/api/v1/config", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
