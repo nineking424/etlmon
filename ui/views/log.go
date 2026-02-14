@@ -3,9 +3,7 @@ package views
 import (
 	"context"
 	"fmt"
-	"strconv"
 
-	"github.com/etlmon/etlmon/internal/config"
 	"github.com/etlmon/etlmon/pkg/models"
 	"github.com/etlmon/etlmon/ui/client"
 	"github.com/etlmon/etlmon/ui/theme"
@@ -16,7 +14,7 @@ import (
 // logViewClient defines the interface for log view API operations
 type logViewClient interface {
 	GetLogEntriesByName(ctx context.Context, name string, limit int) ([]*models.LogEntry, error)
-	GetConfig(ctx context.Context) (*config.NodeConfig, error)
+	GetLogFiles(ctx context.Context) ([]models.LogFileInfo, error)
 }
 
 // LogView displays log file list and real-time log content
@@ -30,7 +28,7 @@ type LogView struct {
 	showingDetail  bool
 	tviewApp       *tview.Application
 	apiClient      logViewClient
-	logConfigs     []config.LogMonitorConfig
+	logFiles       []models.LogFileInfo
 	onStatusChange func(msg string, isError bool)
 }
 
@@ -49,7 +47,7 @@ func NewLogView() *LogView {
 		SetBorderColor(theme.FgLabel)
 
 	// Table headers
-	headers := []string{"Name", "Path", "MaxLines"}
+	headers := []string{"Name", "Path", "Size", "Modified"}
 	for i, h := range headers {
 		cell := tview.NewTableCell(h).
 			SetTextColor(theme.TableHeader).
@@ -150,12 +148,11 @@ func (v *LogView) Refresh(ctx context.Context, c *client.Client) error {
 
 // refresh is the internal method that accepts logViewClient interface
 func (v *LogView) refresh(ctx context.Context, c logViewClient) error {
-	// Get config for log file list
-	cfg, err := c.GetConfig(ctx)
+	files, err := c.GetLogFiles(ctx)
 	if err != nil {
 		return err
 	}
-	v.logConfigs = cfg.Logs
+	v.logFiles = files
 	v.refreshTable()
 
 	// If detail panel is showing, refresh its content
@@ -188,21 +185,28 @@ func (v *LogView) refreshTable() {
 		v.logTable.RemoveRow(i)
 	}
 
-	if len(v.logConfigs) == 0 {
+	if len(v.logFiles) == 0 {
 		v.logTable.SetCell(1, 0, tview.NewTableCell("(no log files configured)").
 			SetTextColor(theme.FgMuted).
 			SetExpansion(1))
 		return
 	}
 
-	for i, l := range v.logConfigs {
+	for i, f := range v.logFiles {
 		row := i + 1
-		v.logTable.SetCell(row, 0, tview.NewTableCell(l.Name).
+		v.logTable.SetCell(row, 0, tview.NewTableCell(f.Name).
 			SetTextColor(theme.FgPrimary))
-		v.logTable.SetCell(row, 1, tview.NewTableCell(l.Path).
+		v.logTable.SetCell(row, 1, tview.NewTableCell(f.Path).
 			SetTextColor(theme.FgSecondary).
 			SetExpansion(1))
-		v.logTable.SetCell(row, 2, tview.NewTableCell(strconv.Itoa(l.MaxLines)).
+		v.logTable.SetCell(row, 2, tview.NewTableCell(formatFileSize(f.Size)).
+			SetTextColor(theme.FgSecondary).
+			SetAlign(tview.AlignRight))
+		modTimeStr := "-"
+		if !f.ModTime.IsZero() {
+			modTimeStr = f.ModTime.Format("2006-01-02 15:04:05")
+		}
+		v.logTable.SetCell(row, 3, tview.NewTableCell(modTimeStr).
 			SetTextColor(theme.FgSecondary).
 			SetAlign(tview.AlignRight))
 	}
@@ -227,11 +231,11 @@ func (v *LogView) refreshDetail(entries []*models.LogEntry) {
 func (v *LogView) selectLog() {
 	row, _ := v.logTable.GetSelection()
 	idx := row - 1
-	if idx < 0 || idx >= len(v.logConfigs) {
+	if idx < 0 || idx >= len(v.logFiles) {
 		return
 	}
 
-	logName := v.logConfigs[idx].Name
+	logName := v.logFiles[idx].Name
 	v.selectedLog = logName
 	v.logDetail.SetTitle(fmt.Sprintf(" %s ", logName))
 
@@ -277,5 +281,26 @@ func (v *LogView) closeDetail() {
 
 	if v.tviewApp != nil {
 		v.tviewApp.SetFocus(v.logTable)
+	}
+}
+
+func formatFileSize(bytes int64) string {
+	if bytes == 0 {
+		return "-"
+	}
+	const (
+		KB = 1024
+		MB = KB * 1024
+		GB = MB * 1024
+	)
+	switch {
+	case bytes >= GB:
+		return fmt.Sprintf("%.1f GB", float64(bytes)/float64(GB))
+	case bytes >= MB:
+		return fmt.Sprintf("%.1f MB", float64(bytes)/float64(MB))
+	case bytes >= KB:
+		return fmt.Sprintf("%.1f KB", float64(bytes)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", bytes)
 	}
 }

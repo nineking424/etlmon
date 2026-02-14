@@ -25,3 +25,12 @@ func (c *Client) GetLogEntriesByName(ctx context.Context, name string, limit int
 	}
 	return entries, nil
 }
+
+// GetLogFiles retrieves log file metadata from the API
+func (c *Client) GetLogFiles(ctx context.Context) ([]models.LogFileInfo, error) {
+	var files []models.LogFileInfo
+	if err := c.get(ctx, "/api/v1/logs/files", &files); err != nil {
+		return nil, err
+	}
+	return files, nil
+}

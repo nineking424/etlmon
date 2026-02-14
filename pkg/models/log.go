@@ -17,3 +17,12 @@ type LogConfig struct {
 	Path     string `yaml:"path" json:"path"`
 	MaxLines int    `yaml:"max_lines" json:"max_lines"`
 }
+
+// LogFileInfo represents log file metadata with runtime stats
+type LogFileInfo struct {
+	Name     string    `json:"name"`
+	Path     string    `json:"path"`
+	MaxLines int       `json:"max_lines"`
+	Size     int64     `json:"size"`
+	ModTime  time.Time `json:"mod_time"`
+}
