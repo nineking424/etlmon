@@ -3,7 +3,7 @@ package views
 import (
 	"context"
 
-	"github.com/etlmon/etlmon/ui/client"
+	"github.com/etlmon/etlmon/ui"
 	"github.com/etlmon/etlmon/ui/theme"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -22,32 +22,33 @@ func NewHelpView() *HelpView {
 		SetWordWrap(true).
 		SetText(`[aqua::b]etlmon TUI - Keyboard Shortcuts[-::-]
 
-[teal::b]Navigation:[-::-]
-  [aqua]0[-]       Switch to Overview
-  [aqua]1[-]       Switch to Filesystem view
-  [aqua]2[-]       Switch to Paths view
-  [aqua]3[-]       Switch to Process view
-  [aqua]4[-]       Switch to Logs view
-  [aqua]5[-]       Switch to Settings view
+[teal::b]Pages:[-::-]
+  [aqua]s[-]       Switch to Settings
   [aqua]?/h[-]     Show this help
+  [aqua]Esc[-]     Return to Overview (from Settings)
 
-[teal::b]Actions:[-::-]
-  [aqua]r[-]       Refresh current view
-  [aqua]s[-]       Trigger path scan (Paths view)
+[teal::b]Overview Navigation:[-::-]
+  [aqua]1[-]       Jump to FS category
+  [aqua]2[-]       Jump to Paths category
+  [aqua]3[-]       Jump to Process category
+  [aqua]4[-]       Jump to Logs category
+  [aqua]j/k[-]     Move up/down in category list
+  [aqua]Tab[-]     Toggle focus (category list ↔ detail panel)
 
-[teal::b]Logs (Logs view):[-::-]
-  [aqua]Enter[-]   View selected log
-  [aqua]Esc[-]     Close log detail
-  [aqua]Tab[-]     Switch between list and detail
+[teal::b]Detail Panel:[-::-]
+  [aqua][[silver]/[aqua]][-]     Previous/Next tab
+  [aqua]j/k[-]     Navigate within detail content
 
-[teal::b]Settings (Settings view):[-::-]
+[teal::b]Settings:[-::-]
   [aqua]a[-]       Add new entry
   [aqua]e[-]       Edit selected entry
   [aqua]d[-]       Delete selected entry
   [aqua]s[-]       Save settings
   [aqua]Tab[-]     Switch between sidebar and content
+  [aqua]Esc[-]     Return to Overview (when not editing)
 
 [teal::b]General:[-::-]
+  [aqua]r[-]       Refresh current view
   [aqua]q[-]       Quit application
   [aqua]Ctrl+C[-]  Force quit
 
@@ -89,7 +90,7 @@ func (v *HelpView) Primitive() tview.Primitive {
 }
 
 // Refresh is a no-op for help view
-func (v *HelpView) Refresh(ctx context.Context, client *client.Client) error {
+func (v *HelpView) Refresh(ctx context.Context, client ui.APIClient) error {
 	return nil
 }
 

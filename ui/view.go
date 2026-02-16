@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 
-	"github.com/etlmon/etlmon/ui/client"
 	"github.com/rivo/tview"
 )
 
@@ -16,7 +15,7 @@ type View interface {
 	Primitive() tview.Primitive
 
 	// Refresh updates the view with fresh data from the API
-	Refresh(ctx context.Context, client *client.Client) error
+	Refresh(ctx context.Context, client APIClient) error
 
 	// Focus sets focus on the appropriate element
 	Focus()

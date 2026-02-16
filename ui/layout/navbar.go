@@ -1,9 +1,6 @@
 package layout
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/etlmon/etlmon/ui/theme"
 	"github.com/rivo/tview"
 )
@@ -31,14 +28,7 @@ func NewNavBar() *NavBar {
 
 	return &NavBar{
 		textView: tv,
-		items: []NavItem{
-			{Key: '0', Name: "Overview", ViewName: "overview"},
-			{Key: '1', Name: "FS", ViewName: "fs"},
-			{Key: '2', Name: "Paths", ViewName: "paths"},
-			{Key: '3', Name: "Process", ViewName: "process"},
-			{Key: '4', Name: "Logs", ViewName: "logs"},
-			{Key: '5', Name: "Settings", ViewName: "settings"},
-		},
+		items:    []NavItem{},
 	}
 }
 
@@ -50,20 +40,8 @@ func (n *NavBar) SetActive(viewName string) {
 
 // render updates the navbar display
 func (n *NavBar) render() {
-	var parts []string
-
-	for _, item := range n.items {
-		if item.ViewName == n.active {
-			parts = append(parts, fmt.Sprintf("[black:aqua:b] <%c> %s [-:-:-]", item.Key, item.Name))
-		} else {
-			parts = append(parts, fmt.Sprintf("[silver:-:-] <%c> %s [-:-:-]", item.Key, item.Name))
-		}
-	}
-
-	shortcuts := "[darkgray]│[-]  [teal]?[silver]=help  [teal]r[silver]=refresh  [teal]s[silver]=scan  [teal]q[silver]=quit"
-
-	text := " " + strings.Join(parts, "  ") + "  " + shortcuts + " "
-	n.textView.SetText(text)
+	shortcuts := " [teal]Tab[silver]=panel  [teal][[silver]/[teal]][silver]=tab  [teal]j[silver]/[teal]k[silver]=nav  [teal]s[silver]=settings  [teal]?[silver]=help  [teal]r[silver]=refresh  [teal]q[silver]=quit "
+	n.textView.SetText(shortcuts)
 }
 
 // Primitive returns the navbar's tview primitive

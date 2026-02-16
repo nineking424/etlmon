@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/etlmon/etlmon/internal/config"
-	"github.com/etlmon/etlmon/ui/client"
+	"github.com/etlmon/etlmon/ui"
 	"github.com/etlmon/etlmon/ui/theme"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -148,7 +148,7 @@ func (v *SettingsView) Primitive() tview.Primitive {
 }
 
 // Refresh loads config from the API
-func (v *SettingsView) Refresh(ctx context.Context, c *client.Client) error {
+func (v *SettingsView) Refresh(ctx context.Context, c ui.APIClient) error {
 	v.apiClient = c
 	return v.refresh(ctx, c)
 }

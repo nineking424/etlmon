@@ -44,22 +44,15 @@ func main() {
 	// Create main UI app
 	app := ui.NewApp(httpClient)
 
-	// Create and register views (overview first = default view)
-	overviewView := views.NewOverviewView()
-	fsView := views.NewFSView()
-	pathsView := views.NewPathsView()
-	processView := views.NewProcessView()
-	logView := views.NewLogView()
+	// Create the tview application reference
+	tviewApp := app.GetTviewApp()
+
+	// Create and register 3 views: UnifiedOverview, Settings, Help
+	overviewView := views.NewUnifiedOverview(tviewApp, httpClient)
 	settingsView := views.NewSettingsView()
 	helpView := views.NewHelpView()
 
-	app.AddView(overviewView)
-	app.AddView(fsView)
-	app.AddView(pathsView)
-	app.AddView(processView)
-	app.AddView(logView)
-	app.AddView(settingsView)
-	app.AddView(helpView)
+	app.SetPages(overviewView, settingsView, helpView)
 
 	// Setup context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
